@@ -4,11 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>{% if page.title and page.title != site.title %}{{ page.title }} · {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
-<meta name="description" content="{{ page.description | default: site.description }}">
-<meta property="og:title" content="{{ page.title | default: site.title }}">
-<meta property="og:description" content="{{ page.description | default: site.description }}">
+<meta name="theme-color" content="#1e1e2e">
+
+{% assign page_title = page.title | default: site.title %}
+{% assign page_desc = page.description | default: site.description %}
+{% assign og_image = '/assets/og.png' | absolute_url %}
+
+<title>{% if page.title and page.title != site.title %}{{ page_title }} · {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
+<meta name="description" content="{{ page_desc }}">
+<link rel="canonical" href="{{ page.url | absolute_url }}">
+
+<!-- Facebook, LinkedIn, Slack, Discord. og:image must be an absolute URL or it
+     is silently ignored; the width/height pair is what makes LinkedIn render a
+     large card instead of a thumbnail. -->
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site.title }}">
+<meta property="og:locale" content="en_GB">
+<meta property="og:url" content="{{ page.url | absolute_url }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ page_desc }}">
+<meta property="og:image" content="{{ og_image }}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Plan with a big model. Execute with cheap ones. /make-plan on opus, then a plan file, then /execute-plan on sonnet, then an opus review gate.">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ page_title }}">
+<meta name="twitter:description" content="{{ page_desc }}">
+<meta name="twitter:image" content="{{ og_image }}">
+
 <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231e1e2e'/><path d='M8 22V10h3.2l4.8 8 4.8-8H24v12h-3v-7l-4 6.6h-1.9L11 15v7z' fill='%23cba6f7'/></svg>">
 </head>

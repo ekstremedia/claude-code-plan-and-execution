@@ -1,5 +1,6 @@
 ---
 title: Prompting
+description: What changed with Opus 5 and Sonnet 5, and the three prompt consequences. One of them inverts standard prompting advice.
 ---
 
 # Prompting the current models

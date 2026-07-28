@@ -1,5 +1,6 @@
 ---
 title: The advisor
+description: /advisor does exist in Claude Code. What is verified about it, what is not, and why it stays off inside the orchestrated workflow.
 ---
 
 # The advisor

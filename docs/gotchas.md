@@ -1,5 +1,6 @@
 ---
 title: Gotchas
+description: The things that silently break a model-tiered Claude Code setup — and keep running while they do it.
 ---
 
 # Gotchas

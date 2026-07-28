@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; }
+  body {
+    background: #1e1e2e;
+    background-image:
+      radial-gradient(900px 500px at 88% -12%, rgba(203,166,247,0.16), transparent 62%),
+      radial-gradient(700px 460px at 4% 108%, rgba(137,180,250,0.13), transparent 60%);
+    color: #cdd6f4;
+    font-family: "DejaVu Sans", ui-sans-serif, system-ui, sans-serif;
+    padding: 66px 74px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+  }
+  body::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 6px;
+    background: linear-gradient(to right, #cba6f7, #89b4fa 42%, #94e2d5 78%, #a6e3a1);
+  }
+
+  .eyebrow {
+    font-family: "DejaVu Sans Mono", ui-monospace, monospace;
+    font-size: 21px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #7f849c;
+  }
+
+  h1 {
+    font-size: 66px;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: #ffffff;
+    font-weight: 700;
+    margin-top: 20px;
+  }
+  h1 .dim { color: #b4befe; }
+
+  p.sub {
+    margin-top: 26px;
+    font-size: 26px;
+    line-height: 1.45;
+    color: #a6adc8;
+    max-width: 900px;
+  }
+
+  .chips {
+    display: flex;
+    gap: 13px;
+    margin-top: 34px;
+    font-family: "DejaVu Sans Mono", ui-monospace, monospace;
+    font-size: 21px;
+  }
+  .chip {
+    padding: 9px 17px;
+    border-radius: 9px;
+    background: #313244;
+    border: 1px solid #45475a;
+    color: #cdd6f4;
+  }
+  .chip b { color: #f9e2af; font-weight: 400; }
+  .arrow { align-self: center; color: #6c7086; font-size: 24px; }
+
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: "DejaVu Sans Mono", ui-monospace, monospace;
+    font-size: 22px;
+    color: #6c7086;
+    border-top: 1px solid #313244;
+    padding-top: 22px;
+  }
+  footer .url { color: #89b4fa; }
+</style>
+</head>
+<body>
+
+  <div>
+    <div class="eyebrow">Claude Code workflow</div>
+    <h1>Plan with a big model.<br><span class="dim">Execute with cheap ones.</span></h1>
+    <p class="sub">Two commands, four model-pinned agents, and a read-only reviewer
+      gating the phases that can actually hurt you.</p>
+
+    <div class="chips">
+      <span class="chip">/make-plan <b>opus</b></span>
+      <span class="arrow">→</span>
+      <span class="chip">plan file</span>
+      <span class="arrow">→</span>
+      <span class="chip">/execute-plan <b>sonnet</b></span>
+      <span class="arrow">→</span>
+      <span class="chip">review gate <b>opus</b></span>
+    </div>
+  </div>
+
+  <footer>
+    <span class="url">ekstremedia.github.io/claude-code-plan-and-execution</span>
+    <span>MIT</span>
+  </footer>
+
+</body>
+</html>

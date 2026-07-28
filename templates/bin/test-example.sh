@@ -26,6 +26,16 @@ if [[ $# -eq 0 ]]; then
   exit 2
 fi
 
+# An empty argument is not a target. Without this, `bin/test-x "$SOMETHING"` with
+# SOMETHING unset passes the count check above and runs the entire suite — the
+# exact outcome the count check exists to prevent. Measured, not theoretical.
+for arg in "$@"; do
+  if [[ -z "$arg" ]]; then
+    echo "refusing: empty argument. Pass a real target." >&2
+    exit 2
+  fi
+done
+
 LOG="$(mktemp -t test-run.XXXXXX.log)"
 
 # --- adapt this line, and only this line, to your project ----------------------

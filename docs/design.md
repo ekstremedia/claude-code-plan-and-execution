@@ -1,5 +1,6 @@
 ---
 title: Design
+description: Six roles, the phase packet, the git discipline that closes a real review hole — and when not to use any of this.
 ---
 
 # Design

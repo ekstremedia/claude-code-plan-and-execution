@@ -1,5 +1,6 @@
 ---
 title: claude-code-plan-and-execution
+description: Plan with a big model, execute with cheap ones. Two Claude Code commands, four model-pinned agents, and a read-only reviewer gating the risky phases.
 ---
 
 # claude-code-plan-and-execution
