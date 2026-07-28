@@ -15,6 +15,58 @@ high-risk phases through an expensive read-only reviewer.
 
 ---
 
+## New to Claude Code?
+
+Claude Code is Anthropic's coding agent. You run it inside a project, describe a
+task in plain language, and it reads your files, edits them, runs commands and
+tests, and shows you what it changed. It is a terminal program first; there are
+also desktop and web apps and IDE extensions.
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+# or: npm install -g @anthropic-ai/claude-code
+
+cd your-project
+claude
+```
+
+It needs a Claude subscription or an API key. Official documentation:
+[code.claude.com/docs](https://code.claude.com/docs).
+
+Six words the rest of this site assumes:
+
+- **Session** — one conversation, in one directory. Close it and its context is
+  gone.
+- **Model** — which Claude is doing the work. Bigger models reason better, cost
+  more, and are slower. `/model` switches mid-session.
+- **Subagent** — a separate Claude with its own context window and its own model,
+  spawned to do one job and report a summary back. It never sees the parent
+  conversation, so its noise never lands in yours. Defined by a markdown file in
+  `.claude/agents/`.
+- **Skill** — a reusable instruction file. Typing `/its-name` runs it. Lives at
+  `.claude/skills/<name>/SKILL.md`.
+- **`CLAUDE.md`** — project rules, loaded into every session automatically.
+- **Plan mode** — a read-only mode (Shift+Tab) for settling an approach before
+  anything gets edited.
+
+### So what is this repository?
+
+Out of the box, one model does everything in one session: the planning, the
+grepping, the code, the tests, the review. That works, but it spends your most
+capable model on file searches and checkbox-ticking, and the plan it worked out
+lives only in that conversation.
+
+This repository is four subagents and two skills that split the work up. An
+expensive model plans and writes the plan to a file. A cheap one executes it,
+handing each phase to a worker pinned to an appropriate model. An expensive
+read-only reviewer checks the parts that can actually hurt you. You install it,
+type two commands, and the routing happens without you thinking about it.
+
+It is worth it for long or risky work. For a quick fix it is overhead — the
+[design page](design.md) says plainly when not to use it.
+
+---
+
 ## Pages
 
 - **[Design](design.md)** — the six roles, why the split, the phase packet, the
