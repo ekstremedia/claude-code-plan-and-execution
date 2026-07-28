@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>{% if page.title and page.title != site.title %}{{ page.title }} · {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
+<meta name="description" content="{{ page.description | default: site.description }}">
+<meta property="og:title" content="{{ page.title | default: site.title }}">
+<meta property="og:description" content="{{ page.description | default: site.description }}">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231e1e2e'/><path d='M8 22V10h3.2l4.8 8 4.8-8H24v12h-3v-7l-4 6.6h-1.9L11 15v7z' fill='%23cba6f7'/></svg>">
+</head>
+<body>
+
+<header class="site-head">
+  <a class="brand" href="{{ '/' | relative_url }}">plan&nbsp;→&nbsp;execute</a>
+  <nav>
+    {% assign p = page.url %}
+    <a href="{{ '/' | relative_url }}"{% if p == '/' %} class="on"{% endif %}>Overview</a>
+    <a href="{{ '/design.html' | relative_url }}"{% if p contains 'design' %} class="on"{% endif %}>Design</a>
+    <a href="{{ '/prompting.html' | relative_url }}"{% if p contains 'prompting' %} class="on"{% endif %}>Prompting</a>
+    <a href="{{ '/advisor.html' | relative_url }}"{% if p contains 'advisor' %} class="on"{% endif %}>Advisor</a>
+    <a href="{{ '/gotchas.html' | relative_url }}"{% if p contains 'gotchas' %} class="on"{% endif %}>Gotchas</a>
+    <a class="gh" href="https://github.com/ekstremedia/claude-code-plan-and-execution">GitHub&nbsp;↗</a>
+  </nav>
+</header>
+
+<main>
+{{ content }}
+</main>
+
+<footer class="site-foot">
+  <span>MIT licensed.</span>
+  <span>Verified against Claude Code 2.1.220.</span>
+  <span>Theme: <a href="https://catppuccin.com">Catppuccin</a> Mocha.</span>
+</footer>
+
+</body>
+</html>

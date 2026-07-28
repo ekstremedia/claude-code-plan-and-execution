@@ -4,7 +4,6 @@ title: Gotchas
 
 # Gotchas
 
-[← index](index.md)
 
 Things that break this setup silently — where it keeps running and quietly stops
 doing what you think it does.
@@ -99,4 +98,3 @@ solution — put it behind a `bin/test-<lang>` wrapper and the duplication shrin
 to one line everywhere. See
 [`templates/bin/test-example.sh`](https://github.com/ekstremedia/claude-code-plan-and-execution/blob/main/templates/bin/test-example.sh).
 
-[← index](index.md)

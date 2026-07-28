@@ -4,7 +4,6 @@ title: Design
 
 # Design
 
-[← index](index.md)
 
 ## Six roles
 
@@ -175,4 +174,3 @@ would need a second agent definition. The reviewer stays at `high`, and the fina
 gate is deepened by telling it in the delegation that this is the whole
 accumulated change set against every success criterion.
 
-[← index](index.md)

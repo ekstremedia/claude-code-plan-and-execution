@@ -1,0 +1,255 @@
+/* Catppuccin Mocha. Palette values are the published ones; nothing else here
+   depends on a theme gem or a remote stylesheet. */
+
+:root {
+  --base:      #1e1e2e;
+  --mantle:    #181825;
+  --crust:     #11111b;
+  --surface0:  #313244;
+  --surface1:  #45475a;
+  --surface2:  #585b70;
+  --overlay0:  #6c7086;
+  --overlay1:  #7f849c;
+  --overlay2:  #9399b2;
+  --subtext0:  #a6adc8;
+  --subtext1:  #bac2de;
+  --text:      #cdd6f4;
+  --lavender:  #b4befe;
+  --blue:      #89b4fa;
+  --sapphire:  #74c7ec;
+  --sky:       #89dceb;
+  --teal:      #94e2d5;
+  --green:     #a6e3a1;
+  --yellow:    #f9e2af;
+  --peach:     #fab387;
+  --maroon:    #eba0ac;
+  --red:       #f38ba8;
+  --mauve:     #cba6f7;
+  --pink:      #f5c2e7;
+
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--base);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16.5px;
+  line-height: 1.65;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- header ---------- */
+
+.site-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.75rem;
+  padding: 0.9rem 1.5rem;
+  background: color-mix(in srgb, var(--mantle) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--surface0);
+}
+
+.site-head .brand {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--mauve);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.site-head nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.15rem;
+  margin-left: auto;
+  font-size: 0.9rem;
+}
+
+.site-head nav a {
+  color: var(--subtext0);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+}
+
+.site-head nav a:hover { color: var(--text); }
+.site-head nav a.on { color: var(--lavender); border-bottom-color: var(--mauve); }
+.site-head nav a.gh { color: var(--overlay1); }
+.site-head nav a.gh:hover { color: var(--sky); }
+
+/* ---------- layout ---------- */
+
+main {
+  max-width: 47rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+/* ---------- type ---------- */
+
+h1, h2, h3, h4 {
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  margin: 2.4em 0 0.65em;
+}
+
+h1 {
+  margin-top: 0;
+  font-size: 2.05rem;
+  color: #fff;
+}
+
+h2 {
+  font-size: 1.4rem;
+  color: var(--lavender);
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--surface0);
+}
+
+h3 { font-size: 1.1rem; color: var(--sapphire); }
+h4 { font-size: 1rem; color: var(--subtext1); }
+
+p, ul, ol { margin: 0 0 1.15em; }
+
+li { margin-bottom: 0.35em; }
+li > ul, li > ol { margin-top: 0.35em; }
+
+strong { color: #fff; font-weight: 620; }
+em { color: var(--subtext1); }
+
+a { color: var(--blue); text-decoration-color: color-mix(in srgb, var(--blue) 40%, transparent); text-underline-offset: 2px; }
+a:hover { color: var(--sky); text-decoration-color: currentColor; }
+
+hr {
+  height: 1px;
+  margin: 2.75rem 0;
+  border: 0;
+  background: linear-gradient(to right, var(--surface1), var(--surface0) 45%, transparent);
+}
+
+/* ---------- code ---------- */
+
+code {
+  font-family: var(--mono);
+  font-size: 0.875em;
+  background: var(--surface0);
+  color: var(--peach);
+  padding: 0.13em 0.4em;
+  border-radius: 5px;
+}
+
+pre {
+  background: var(--crust);
+  border: 1px solid var(--surface0);
+  border-radius: 9px;
+  padding: 1rem 1.15rem;
+  overflow-x: auto;
+  font-size: 0.855rem;
+  line-height: 1.55;
+  margin: 0 0 1.4em;
+}
+
+pre code {
+  background: none;
+  color: var(--text);
+  padding: 0;
+  font-size: inherit;
+}
+
+/* rouge */
+.highlight .c, .highlight .c1, .highlight .cm, .highlight .cs { color: var(--overlay1); font-style: italic; }
+.highlight .k, .highlight .kd, .highlight .kn, .highlight .kr, .highlight .kc { color: var(--mauve); }
+.highlight .s, .highlight .s1, .highlight .s2, .highlight .se, .highlight .sb { color: var(--green); }
+.highlight .n, .highlight .nx, .highlight .nv { color: var(--text); }
+.highlight .nf, .highlight .nd { color: var(--blue); }
+.highlight .nt { color: var(--blue); }
+.highlight .na { color: var(--yellow); }
+.highlight .nb, .highlight .bp { color: var(--red); }
+.highlight .o, .highlight .ow, .highlight .p { color: var(--sky); }
+.highlight .m, .highlight .mi, .highlight .mf { color: var(--peach); }
+.highlight .err { color: var(--red); background: none; }
+.highlight .gd { color: var(--red); }
+.highlight .gi { color: var(--green); }
+
+/* ---------- tables ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.6em;
+  font-size: 0.9rem;
+  display: block;
+  overflow-x: auto;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--surface0);
+  vertical-align: top;
+}
+
+thead th {
+  color: var(--lavender);
+  font-weight: 600;
+  background: var(--mantle);
+  border-bottom-color: var(--surface1);
+  white-space: nowrap;
+}
+
+tbody tr:hover { background: color-mix(in srgb, var(--surface0) 45%, transparent); }
+
+td code, th code { white-space: nowrap; }
+
+/* ---------- blockquote ---------- */
+
+blockquote {
+  margin: 0 0 1.5em;
+  padding: 0.9rem 1.15rem;
+  background: color-mix(in srgb, var(--yellow) 7%, var(--mantle));
+  border-left: 3px solid var(--yellow);
+  border-radius: 0 8px 8px 0;
+  color: var(--subtext1);
+}
+
+blockquote > :last-child { margin-bottom: 0; }
+blockquote strong { color: var(--yellow); }
+
+/* ---------- footer ---------- */
+
+.site-foot {
+  max-width: 47rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 3rem;
+  border-top: 1px solid var(--surface0);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  color: var(--overlay1);
+  font-size: 0.82rem;
+}
+
+.site-foot a { color: var(--overlay2); }
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .site-head { padding: 0.75rem 1rem; }
+  .site-head nav { margin-left: 0; width: 100%; }
+  main { padding: 1.75rem 1.15rem 3rem; }
+  h1 { font-size: 1.7rem; }
+}

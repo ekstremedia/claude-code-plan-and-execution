@@ -4,7 +4,6 @@ title: The advisor
 
 # The advisor
 
-[← index](index.md)
 
 Claude Code has an experimental **advisor**: a stronger model the running model
 can consult mid-task. This page exists because an earlier version of these notes
@@ -75,4 +74,3 @@ That is the right shape for a normal feature or an ordinary multi-file bug. Reac
 for the orchestrated workflow when the task is long, context-heavy, or genuinely
 risky. The two are alternatives, not layers.
 
-[← index](index.md)

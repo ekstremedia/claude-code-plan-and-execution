@@ -1,7 +1,21 @@
 title: claude-code-plan-and-execution
 description: Plan with a big model, execute with cheap ones — a two-command Claude Code workflow.
-theme: jekyll-theme-primer
-show_downloads: false
 
-# Rendered from docs/ on the main branch. No build step, no dependencies beyond
-# what GitHub Pages provides.
+url: https://ekstremedia.github.io
+baseurl: /claude-code-plan-and-execution
+
+markdown: kramdown
+highlighter: rouge
+
+# No theme gem. docs/_layouts/default.html and docs/assets/css/style.css carry
+# the whole look (Catppuccin Mocha), so nothing here depends on a remote theme
+# resolving at build time.
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+exclude:
+  - Gemfile
+  - Gemfile.lock

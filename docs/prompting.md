@@ -4,7 +4,6 @@ title: Prompting
 
 # Prompting the current models
 
-[← index](index.md)
 
 A model release is a prompt-review trigger, not just a changelog entry. `model:
 opus` in agent frontmatter silently resolves to whatever "opus" means today —
@@ -83,4 +82,3 @@ exact difference depends on the content. A cost or context baseline measured on
 an older model under-predicts. Measure rather than extrapolate, and do not treat
 a mixed-generation fleet as directly comparable per token.
 
-[← index](index.md)
