@@ -1,0 +1,17 @@
+{
+  "name": "plan-and-execute",
+  "description": "A two-command Claude Code workflow: plan with a big model, execute with cheap model-pinned workers, gate the risky phases behind an expensive read-only reviewer.",
+  "owner": {
+    "name": "Terje Nesthus",
+    "url": "https://github.com/ekstremedia"
+  },
+  "plugins": [
+    {
+      "name": "plan-and-execute",
+      "source": "./",
+      "description": "Plan with a big model, execute with cheap ones: /make-plan and /execute-plan plus four model-pinned agents.",
+      "version": "0.1.0",
+      "category": "workflow"
+    }
+  ]
+}

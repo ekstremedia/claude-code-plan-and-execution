@@ -1,0 +1,7 @@
+# Local Claude Code state, if this repo is itself opened in Claude Code.
+.claude/settings.local.json
+
+# Jekyll build output, if anyone builds the docs site locally.
+docs/_site/
+docs/.jekyll-cache/
+docs/Gemfile.lock

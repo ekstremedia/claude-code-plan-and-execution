@@ -1,0 +1,19 @@
+{
+  "//": "Merge into <project>/.claude/settings.json. Comments are not valid JSON — strip the // keys before use.",
+
+  "//plansDirectory": "Where built-in plan mode writes its plan files. Relative to the project root; must stay inside it. Without this, plans land in ~/.claude/plans/ and are not version-controlled. /make-plan writes to plans/ regardless — this setting aligns Shift+Tab plan mode with the same location.",
+  "plansDirectory": "plans",
+
+  "//env": "Do NOT set CLAUDE_CODE_SUBAGENT_MODEL. It takes precedence over every agent's model: frontmatter, which would silently collapse the whole tiering onto one model.",
+  "env": {},
+
+  "//permissions": "Optional. Pre-allowing the read-only commands the orchestrator runs constantly cuts prompt fatigue during a long plan run.",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git rev-parse:*)"
+    ]
+  }
+}

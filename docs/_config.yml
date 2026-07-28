@@ -1,0 +1,7 @@
+title: claude-code-plan-and-execution
+description: Plan with a big model, execute with cheap ones — a two-command Claude Code workflow.
+theme: jekyll-theme-primer
+show_downloads: false
+
+# Rendered from docs/ on the main branch. No build step, no dependencies beyond
+# what GitHub Pages provides.
