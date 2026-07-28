@@ -140,6 +140,13 @@ hr {
   background: linear-gradient(to right, var(--surface1), var(--surface0) 45%, transparent);
 }
 
+/* An h2 right after a rule would otherwise draw a second line under the first. */
+hr + h2 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 /* ---------- code ---------- */
 
 code {
@@ -213,6 +220,15 @@ thead th {
 tbody tr:hover { background: color-mix(in srgb, var(--surface0) 45%, transparent); }
 
 td code, th code { white-space: nowrap; }
+
+/* Four-column tables are cramped inside a prose-width column. Let them spill
+   into the margins once there is room for it. */
+@media (min-width: 68rem) {
+  main > table {
+    width: calc(100% + 7rem);
+    margin-left: -3.5rem;
+  }
+}
 
 /* ---------- blockquote ---------- */
 
