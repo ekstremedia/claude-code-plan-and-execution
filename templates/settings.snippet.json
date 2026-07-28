@@ -1,7 +1,7 @@
 {
   "//": "Merge into <project>/.claude/settings.json. Comments are not valid JSON — strip the // keys before use.",
 
-  "//plansDirectory": "Where built-in plan mode writes its plan files. Relative to the project root; must stay inside it. Without this, plans land in ~/.claude/plans/ and are not version-controlled. /make-plan writes to plans/ regardless — this setting aligns Shift+Tab plan mode with the same location.",
+  "//plansDirectory": "Where built-in plan mode writes its plan files. Relative to the project root; must stay inside it. Without this, plans land in ~/.claude/plans/ and are not version-controlled. Set it: in plan mode the harness owns the plan path outright, so this is what keeps that file inside the repository too. Note /make-plan refuses to run while plan mode is active — the two are alternatives, not layers.",
   "plansDirectory": "plans",
 
   "//env": "Do NOT set CLAUDE_CODE_SUBAGENT_MODEL. It takes precedence over every agent's model: frontmatter, which would silently collapse the whole tiering onto one model.",

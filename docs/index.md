@@ -48,7 +48,8 @@ Six words the rest of this site assumes:
   `.claude/skills/<name>/SKILL.md`.
 - **`CLAUDE.md`** — project rules, loaded into every session automatically.
 - **Plan mode** — a read-only mode (Shift+Tab) for settling an approach before
-  anything gets edited.
+  anything gets edited. `/make-plan` replaces it rather than composing with it;
+  run one or the other, never both at once.
 
 ### So what is this repository?
 
@@ -83,7 +84,7 @@ It is worth it for long or risky work. For a quick fix it is overhead — the
 ## The shape in one screen
 
 ```
-Session 1 — planning
+Session 1 — planning        (plan mode OFF — it overrides the skill)
   /make-plan MyPlan <problem>
       │  model: opus
       ├── planning-researcher   (sonnet, read-only)  ← breadth search
@@ -93,7 +94,7 @@ Session 1 — planning
 
 Session 2 — execution (fresh)
   /execute-plan plans/MyPlan.md
-      │  model: sonnet, effort medium
+      │  model: sonnet, effort medium, Write withheld
       ├── phase packet ──→ implementer        (sonnet, effort high)
       │                └─→ quick-implementer  (haiku, batched, refuses judgment)
       ├── reads real diff + new untracked files
@@ -103,6 +104,12 @@ Session 2 — execution (fresh)
 
 Every model above is pinned in the agent's own frontmatter. The session model
 does not leak into the workers.
+
+You can check that from a transcript rather than taking it on trust —
+`scripts/verify-models.py` in the repository prints which model each skill
+invocation actually ran on. Do not read the `model` field on assistant messages;
+it records the session's configured model and will report Opus for an entire run
+that executed on Sonnet. [Gotchas](gotchas.md) has the details.
 
 ---
 

@@ -33,12 +33,18 @@ git clone https://github.com/ekstremedia/claude-code-plan-and-execution
 ./claude-code-plan-and-execution/install.sh /path/to/your/project
 ```
 
-> **The plugin path is weaker on purpose to know about.** Claude Code ignores
+> **The plugin path is the weaker of the two.** Claude Code ignores
 > `permissionMode`, `hooks`, and `mcpServers` in plugin-packaged agents. The two
 > read-only agents — `planning-researcher` and `plan-reviewer` — rely on
 > `permissionMode: plan` to be *unable* to write. Installed as a plugin they are
 > only instructed not to write. Use `install.sh` if that distinction matters to
 > you.
+
+**Pick one path per project.** Plugin agents are namespaced
+(`plan-and-execute:plan-reviewer`), so they do not shadow a project's own copies
+— both load under different names, and the orchestrator may reach for the
+unenforced one. If a project is installed with `install.sh`, keep the plugin
+disabled there.
 
 Then adapt the two worker agents: both carry a `<!-- PROJECT: -->` marker naming
 what to replace.
@@ -54,6 +60,11 @@ what to replace.
 Opus researches (via a cheap read-only researcher), verifies the decisive
 evidence itself, and writes `plans/RefreshTokens.md` — metadata, phases, risk
 levels, acceptance criteria. It ends by telling you the next command.
+
+Run it with **plan mode off**. Plan mode injects its own workflow, which outranks
+the skill: research gets forced onto `Explore` at planner rates and the plan is
+written outside the repository. `/make-plan` replaces plan mode rather than
+composing with it, and refuses to run inside it.
 
 ```
 # new session
@@ -102,10 +113,41 @@ voluminous, the run is long, or the phases are independent.
 | `templates/CLAUDE.md.snippet.md` | Two lines to paste into the project. |  |
 | `templates/settings.snippet.json` | `plansDirectory`, permissions. |  |
 | `templates/bin/test-example.sh` | The test-wrapper convention. |  |
+| `scripts/verify-models.py` | Proves from a transcript which model actually ran. |  |
 
 Workers are **subagents**, not skills, because they need isolated context as well
 as a model pin: verbose test output and file reads stay inside the worker, and
 only a short report crosses back.
+
+---
+
+## Verifying the tiering
+
+Do not check the `model` field on assistant messages in a session transcript — it
+records the session's configured model, not the one that ran the turn. It will
+report `opus` for an entire `/execute-plan` run that executed on Sonnet.
+
+The authoritative record is the `command_permissions` attachment written when a
+skill is invoked. `scripts/verify-models.py` extracts it:
+
+```bash
+python3 scripts/verify-models.py                 # sweep ~/.claude/projects/
+python3 scripts/verify-models.py SESSION.jsonl   # one transcript
+```
+
+```
+=== 53df59da  /home/terje/projects/huskeapp  2026-07-28T11:59
+  skill invocations (command_permissions — authoritative):
+    12:02  model=claude-opus-5
+           allowedTools=Read, Glob, Grep, Bash, Write, Agent
+  delegations: Explore x3
+  WARNING: Explore x3 inherits the session model — a research delegation here
+           bypasses planning-researcher and runs at planner rates
+  message.model (session config, NOT effective): claude-opus-5 x36
+```
+
+A skill that declares no `model:` logs no `model` key at all, so the key's
+presence is itself the proof the pin was applied. Standard library only, no `jq`.
 
 ---
 

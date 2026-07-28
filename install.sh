@@ -4,11 +4,15 @@
 #
 #   ./install.sh /path/to/project           install, refuse to overwrite
 #   ./install.sh /path/to/project --force   overwrite existing files
-#   ./install.sh /path/to/project --templates   also copy templates/ into the project
+#   ./install.sh /path/to/project --templates    also copy templates/
+#   ./install.sh /path/to/project --skills-only  skills only, leave agents alone
 #
 # Copies:
 #   agents/*.md          -> <project>/.claude/agents/
 #   skills/*/SKILL.md    -> <project>/.claude/skills/<name>/SKILL.md
+#
+# Use --skills-only with --force to take a skill update without overwriting
+# agents you have adapted to the project.
 #
 # Idempotent: a second run without --force changes nothing and says so.
 
@@ -19,13 +23,15 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET=""
 FORCE=0
 TEMPLATES=0
+SKILLS_ONLY=0
 
 for arg in "$@"; do
   case "$arg" in
-    --force)     FORCE=1 ;;
-    --templates) TEMPLATES=1 ;;
+    --force)       FORCE=1 ;;
+    --templates)   TEMPLATES=1 ;;
+    --skills-only) SKILLS_ONLY=1 ;;
     -h|--help)
-      sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     -*)
       echo "unknown option: $arg" >&2; exit 2 ;;
@@ -75,9 +81,13 @@ place() {                     # place <source-file> <dest-file>
 
 echo "Installing into $TARGET"
 
-for f in "$SRC"/agents/*.md; do
-  place "$f" "$TARGET/.claude/agents/$(basename "$f")"
-done
+if [[ $SKILLS_ONLY -eq 0 ]]; then
+  for f in "$SRC"/agents/*.md; do
+    place "$f" "$TARGET/.claude/agents/$(basename "$f")"
+  done
+else
+  echo "  (--skills-only: agents left untouched)"
+fi
 
 for d in "$SRC"/skills/*/; do
   name="$(basename "$d")"

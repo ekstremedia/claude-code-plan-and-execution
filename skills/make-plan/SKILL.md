@@ -15,12 +15,40 @@ notice along the way. Record those in the plan instead.
 Arguments: $ARGUMENTS — a plan name followed by the problem to plan. If the
 problem is missing, ask. If only the problem is given, derive a name.
 
+## Preflight
+
+State the model you are running as. If it is not Opus, say so — the tiering
+assumes an expensive planner, and the user may want to restart.
+
+Then check whether **plan mode is active**. Signs: a plan-mode system message, a
+harness-supplied plan file path (typically under `~/.claude/plans/`), a "Plan
+Workflow" you did not ask for, or a fence naming one file as the only one you may
+edit. The `$ARGUMENTS` plan name is not such a sign.
+
+If it is, **stop**. Do not research, do not delegate, do not write. Say:
+
+> Plan mode is active, and its built-in workflow overrides this skill — it
+> forces Explore-only research and confines writes to `~/.claude/plans/`. Leave
+> plan mode with Shift+Tab, then run `/make-plan` again.
+
+This is not a formality. It has happened in practice: the plan landed outside the
+repository and every research delegation went to `Explore` at planner rates.
+`/make-plan` replaces plan mode; the two do not compose.
+
 ## Research
 
-Delegate breadth-first search to the `planning-researcher` agent — locating
+Delegate breadth-first search to the **`planning-researcher`** agent — locating
 candidates, mapping conventions, finding the tests, disproving the obvious
-hypotheses. Batch related questions into ONE delegation. Use a second only if
-the task has genuinely independent areas. Do not exceed two.
+hypotheses. Under a plugin install it appears as
+`plan-and-execute:planning-researcher`; either name is the same agent.
+
+Do **not** use `Explore`, `general-purpose`, or any other search agent for this.
+They inherit the session model, so breadth-first grepping would run at planner
+rates — which is the entire cost the researcher tier exists to avoid.
+
+Batch related questions into ONE delegation. A second is allowed only if the
+task has genuinely independent areas. **Two total is the hard ceiling; one is
+the norm.** Count them.
 
 Then read the decisive files yourself. The researcher discovers; you verify the
 evidence the root cause rests on. A plan is treated as authoritative once
@@ -54,6 +82,8 @@ migrations, authorization, security, public API surface, and shared
 infrastructure — not for routine additions.
 
 Write the file to `plans/<PlanName>.md`, creating `plans/` if it does not exist.
+That path is canonical and it is the only copy. Do not also write to
+`~/.claude/plans/`, and do not leave a second copy behind anywhere.
 
 ## Finish
 

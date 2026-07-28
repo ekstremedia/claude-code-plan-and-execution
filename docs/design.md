@@ -52,6 +52,14 @@ set, defaults to `~/.claude/plans/`"* — points it at the repository. Set it to
 `/make-plan` still earns its keep by controlling the filename, capping research
 delegation, and filling the contract.
 
+They are alternatives, though, not layers. Plan mode injects its own workflow,
+and that injection outranks a skill body: research gets forced onto `Explore`,
+which inherits the session model, and writes are fenced to the harness's own plan
+path. Run `/make-plan` from plan mode and you get a plan outside the repository
+produced by an expensive model doing its own grepping — the two failures this
+whole design exists to prevent, at once. So `/make-plan` checks and refuses. See
+[Gotchas](gotchas.md).
+
 ## The phase packet
 
 The orchestrator does not hand a worker the whole plan, and does not hand it the
@@ -110,6 +118,26 @@ The reviewer is also told **not to write the fix** — file, symbol, evidence,
 impact, smallest conceptual correction. Two reasons: an expensive model producing
 patch text is expensive output for work the cheap model is about to do anyway,
 and a pasted patch collapses the role split that makes the review independent.
+
+## What the orchestrator is actually prevented from doing
+
+"The orchestrator writes no code" is two different guarantees, and only one of
+them is enforced.
+
+`Write` is withheld through the skill's `disallowed-tools`, so it cannot create a
+file at all — no new component, no new test, no new migration appearing from the
+orchestrator tier. That part is the harness's job and it holds.
+
+`Edit` it keeps, because the plan file needs editing for phase status and
+deviations, and frontmatter cannot scope a tool to one path. So "the plan file
+only" is a rule the orchestrator holds itself to. If you need that enforced
+rather than instructed, a `PreToolUse` hook on `Edit` is the instrument — with
+the caveat that hooks are dropped for plugin-packaged skills, so it protects only
+the `install.sh` path.
+
+An allowlist would be the stronger-looking option and is the wrong one here:
+omitting `ToolSearch` makes the deferred `SendMessage` unloadable, which silently
+breaks resuming the same implementer inside a phase.
 
 ## Delegate, then commit to the delegation
 
