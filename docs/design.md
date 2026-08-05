@@ -171,10 +171,11 @@ plan file at all.
 
 ## Stopping a stuck implementer
 
-The tempting control is `maxTurns`. It is the wrong one at small values:
-`maxTurns` counts every agentic turn — read the packet, grep, read the service,
-read the test, edit, run, read the failure, fix — so a low cap truncates correct
-work mid-phase and leaves half-written code behind.
+The tempting control is `maxTurns`, and it is the wrong one twice over. Even if
+it worked it would be wrong at small values: a turn is every agentic step — read
+the packet, grep, read the service, read the test, edit, run, read the failure,
+fix — so a low cap truncates correct work mid-phase and leaves half-written code
+behind. And it does not work; see below.
 
 The failure actually worth stopping is *edits that gain no information*. So the
 implementer is told: if two materially different repair attempts produce the same
@@ -184,7 +185,52 @@ the most likely next investigation. Three red tests in a row is often just a
 correct sequence — the reproduction test failing as designed, then an edge case
 surfacing, then a stale fixture.
 
-`maxTurns: 20` is a reasonable backstop if you want a hard limit. Eight is not.
+Do not reach for `maxTurns` as the backstop either. Measured on a subagent that
+declared `maxTurns: 15`: it ran 65 turns. The key is accepted and ignored, so
+the instruction above is the whole mechanism — there is no hard limit behind it.
+
+## Why the read-only agents carry no turn limit
+
+`planning-researcher` and `plan-reviewer` had `maxTurns: 15` and it was removed.
+The reasoning above applies to them with more force, not less.
+
+The first reason is that it was not doing anything. A researcher delegated five
+bugs spanning two repositories was reported back to the planner as
+`Done · 21 tool uses · 49.8k tokens · 1m 16s` — and its subagent transcript
+shows it was at **turn 33 of an eventual 65** when that happened. A cap of 15
+did not stop it at 15, or at all. Inert config is worse than no config: it reads
+like a control, so you stop looking for the real one.
+
+What the planner received as the agent's "final answer" was its interleaved
+narration — *"Found `AppSetting`, `EnforceAppSettings` middleware… let's dig
+in"* — because the run was cut mid-investigation, before the turn that writes
+the report. The planner said the answer kept truncating and went back to
+grepping the codebase itself at planner rates. Its follow-up then resumed the
+agent in the background, where it ran another 32 turns that nothing was waiting
+for.
+
+So the shape of the failure is real even though the cap was not its cause: an
+agent that searches first and reports last loses everything if it is stopped
+early, and the visible symptom is not "stopped early" but "the agent lost its
+answer". The defence is to size the delegation so it finishes — see the research
+section of `make-plan` — not to add a second stopping condition.
+
+A cap is also the wrong place to economise. Research is already the cheap tier —
+`planning-researcher` runs Sonnet at `medium` precisely so breadth-first
+grepping does not run at planner rates. That is where the saving comes from. A
+turn cap on top of it buys nothing and buys it at the price of the report.
+
+The risk a cap guards against is a runaway *loop*, and what makes a loop
+expensive is repeated writes. These agents have no editing tools at all —
+`tools` grants Read, Glob, Grep and Bash — and `permissionMode: plan` gates the
+Bash they do have, though a plugin install drops that (see `gotchas.md`). A
+read-only agent that searches ten turns too long costs ten cheap turns. A
+truncated report costs the whole delegation.
+
+Cap agents that edit. Let agents that only look, finish. And before trusting any
+cap, check a subagent transcript under
+`~/.claude/projects/<project>/<session>/subagents/` and count the turns it
+actually took.
 
 ## Effort
 

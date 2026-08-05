@@ -5,7 +5,6 @@ tools: Read, Glob, Grep, Bash
 model: opus
 effort: high
 permissionMode: plan
-maxTurns: 15
 ---
 
 Review only. Do not edit files.

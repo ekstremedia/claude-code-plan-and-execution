@@ -40,6 +40,7 @@ def scan(path):
     """Return a summary dict for one transcript, or None if unreadable."""
     invocations = []
     delegations = Counter()
+    backgrounded = Counter()
     logged_models = Counter()
     cwd = None
     first_ts = None
@@ -84,7 +85,12 @@ def scan(path):
             for block in msg.get("content") or []:
                 if isinstance(block, dict) and block.get("name") == "Agent":
                     inp = block.get("input") or {}
-                    delegations[inp.get("subagent_type") or "?"] += 1
+                    name = inp.get("subagent_type") or "?"
+                    delegations[name] += 1
+                    # Absence counts: the Agent tool backgrounds delegations
+                    # unless `run_in_background: false` is passed explicitly.
+                    if inp.get("run_in_background") is not False:
+                        backgrounded[name] += 1
 
     return {
         "path": path,
@@ -92,6 +98,7 @@ def scan(path):
         "ts": first_ts,
         "invocations": invocations,
         "delegations": delegations,
+        "backgrounded": backgrounded,
         "logged_models": logged_models,
     }
 
@@ -139,6 +146,12 @@ def report(summary):
             warnings.append(
                 f"{name} is the plugin copy — plugin agents drop permissionMode, "
                 f"so a read-only agent is only prompt-enforced"
+            )
+    for name, n in summary.get("backgrounded", Counter()).items():
+        if unqualify(name) in OURS:
+            warnings.append(
+                f"{name} x{n} was not delegated with run_in_background: false — "
+                f"backgrounded, the caller resumes before the work lands"
             )
     for w in warnings:
         print(f"  WARNING: {w}")

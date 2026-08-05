@@ -128,6 +128,49 @@ phase — the implementer already knows what it did. Never for a reviewer: the
 value of a review is the fresh context, and a resumed reviewer is reviewing its
 own framing.
 
+## Subagents run in the background by default
+
+The `Agent` tool backgrounds delegations unless told otherwise, and both skills
+here are built on the opposite assumption: the planner needs the research before
+it can write the plan, and the orchestrator needs the code on disk before step 4
+can diff it. Backgrounded, the orchestrator reviews an empty diff and the
+planner starts re-deriving evidence that is still in flight.
+
+Pass `run_in_background: false` on every delegation in both skills. The
+symptoms do not look like a scheduling bug — they look like the agent losing its
+answer.
+
+## `maxTurns` on an agent is not enforced — verify before trusting it
+
+`planning-researcher` carried `maxTurns: 15`. A run of it was measured at **65
+assistant turns**. The key is accepted in frontmatter and does nothing, which is
+worse than omitting it: it reads like a control, so you stop looking for the one
+that actually stopped your agent.
+
+Count for yourself rather than believing the frontmatter — subagent transcripts
+are written to
+`~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl`, one JSON
+record per line, and `type == "assistant"` is a turn.
+
+It is gone from both read-only agents. See "Why the read-only agents carry no
+turn limit" in `design.md`.
+
+## A cut-off agent returns its narration as its answer
+
+When a research or review agent is stopped mid-run — for whatever reason — what
+comes back is not an error. It is whatever text the agent had emitted so far,
+which for these agents is the running commentary between tool calls: *"Found the
+middleware, let's dig in."* It reads like a report that trails off.
+
+Measured: a delegation reported back as `Done · 21 tool uses · 49.8k tokens ·
+1m 16s` had, at that moment, written no report at all — and the parent's
+follow-up resumed it in the background for another 32 turns whose output nothing
+was waiting for.
+
+So "the agent lost its answer" is usually "the agent never got to write one".
+Size delegations so they finish, and treat a report that ends on a *"now let's
+check…"* as a truncation, not a finding.
+
 ## `effort` is fixed per agent definition
 
 There is no per-invocation effort knob. "Bump the final review to `xhigh`" is not

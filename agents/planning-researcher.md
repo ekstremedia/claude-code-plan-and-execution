@@ -5,7 +5,6 @@ tools: Read, Glob, Grep, Bash
 model: sonnet
 effort: medium
 permissionMode: plan
-maxTurns: 15
 ---
 
 You are a read-only research agent. Investigate only the question the planner

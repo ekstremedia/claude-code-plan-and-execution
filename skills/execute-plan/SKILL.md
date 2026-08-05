@@ -57,6 +57,13 @@ Batch several fully-specified mechanical nits into ONE delegation rather than
 one each. When in doubt, use `implementer`. If `quick-implementer` refuses,
 re-delegate to `implementer` — never force it.
 
+Delegate **synchronously** — `run_in_background: false`. Subagents run in the
+background by default, and a backgrounded implementer hands you control before
+it has written a line: step 4 then reviews an empty diff, and the phase either
+looks finished when nothing happened or gets checked off against work that
+lands minutes later. One phase at a time means one implementer at a time,
+waited for.
+
 **4. Review the actual changes, not the summary.**
 
 - `git status --short` again; diff it against the preflight record to find every
@@ -79,8 +86,8 @@ fresh implementer. Reviewers are always fresh — never resume one.
 
 **6. Gate high-risk phases.** After any phase marked `Risk: high` — and after
 migrations, authorization, security, public API, shared infrastructure —
-delegate the phase's changes to `plan-reviewer` (read-only, fresh context). Name
-the files, including new untracked ones. It reports every plausible finding with
+delegate the phase's changes to `plan-reviewer` (read-only, fresh context, also
+`run_in_background: false`). Name the files, including new untracked ones. It reports every plausible finding with
 a severity and a confidence and filters nothing: **you are the filter.** Route
 what matters back to an implementer, and record anything you consciously decline
 in the plan file, so the decision is on the record rather than lost.

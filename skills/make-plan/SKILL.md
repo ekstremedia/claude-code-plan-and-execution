@@ -46,9 +46,26 @@ Do **not** use `Explore`, `general-purpose`, or any other search agent for this.
 They inherit the session model, so breadth-first grepping would run at planner
 rates — which is the entire cost the researcher tier exists to avoid.
 
-Batch related questions into ONE delegation. A second is allowed only if the
-task has genuinely independent areas. **Two total is the hard ceiling; one is
-the norm.** Count them.
+Scope the delegations to the work, not to a fixed number. **One delegation per
+genuinely independent area; batch every question about an area into that one
+delegation.** Areas are independent when neither one's answer changes where you
+would look for the other's — separate repositories, unrelated subsystems,
+unrelated bugs that happen to arrive in the same request.
+
+Most tasks have one area, so most tasks get one delegation. A five-bug report
+spanning a mobile client and its backend does not; forcing that into a single
+delegation produces one long serial search and a report that has to cover
+everything at once.
+
+Do not split what shares evidence. Two questions answered by reading the same
+files are one delegation — splitting them pays for the same search twice and
+gives you two half-views to reconcile.
+
+Dispatch independent delegations **in parallel, in a single message**, and
+**synchronously** — `run_in_background: false`. Subagents run in the background
+by default, which is wrong here: you cannot write the plan before the evidence
+arrives, and a researcher whose report lands after you have given up and started
+grepping yourself has been paid for and discarded.
 
 Then read the decisive files yourself. The researcher discovers; you verify the
 evidence the root cause rests on. A plan is treated as authoritative once
