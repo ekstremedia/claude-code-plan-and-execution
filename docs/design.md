@@ -221,10 +221,15 @@ grepping does not run at planner rates. That is where the saving comes from. A
 turn cap on top of it buys nothing and buys it at the price of the report.
 
 The risk a cap guards against is a runaway *loop*, and what makes a loop
-expensive is repeated writes. These agents have no editing tools at all —
-`tools` grants Read, Glob, Grep and Bash — and `permissionMode: plan` gates the
-Bash they do have, though a plugin install drops that (see `gotchas.md`). A
-read-only agent that searches ten turns too long costs ten cheap turns. A
+expensive is repeated writes. Neither agent has `Edit` or `Write`. Both keep
+`Bash`, because breadth-first `grep` and `git log` are the job — a measured
+research run made thirty-odd Bash calls and a handful of Reads. `Bash` is not a
+sandbox, and `permissionMode: plan` gates it only in a local install; a plugin
+install drops that key (see `gotchas.md`).
+
+So the guarantee here is narrow, and worth stating exactly rather than rounding
+up to "read-only": these agents will not sit in a write-test-write loop, so a
+search that runs ten turns too long costs ten cheap turns and nothing else. A
 truncated report costs the whole delegation.
 
 Cap agents that edit. Let agents that only look, finish. And before trusting any

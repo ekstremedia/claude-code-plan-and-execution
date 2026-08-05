@@ -136,9 +136,14 @@ it can write the plan, and the orchestrator needs the code on disk before step 4
 can diff it. Backgrounded, the orchestrator reviews an empty diff and the
 planner starts re-deriving evidence that is still in flight.
 
-Pass `run_in_background: false` on every delegation in both skills. The
-symptoms do not look like a scheduling bug — they look like the agent losing its
-answer.
+The caller is supposed to foreground a delegation whose result it needs, and
+often does. Do not rely on it. Counted across local transcripts: `implementer`
+backgrounded eight times inside a single `/execute-plan` run — a delegation
+whose result the very next step diffs.
+
+So pass `run_in_background: false` explicitly on every delegation in both
+skills. The symptoms do not look like a scheduling bug — they look like the
+agent losing its answer.
 
 ## `maxTurns` on an agent is not enforced — verify before trusting it
 

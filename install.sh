@@ -106,10 +106,13 @@ if [[ $SKILLS_ONLY -eq 0 ]]; then
     dest="$TARGET/.claude/agents/$name.md"
 
     if [[ $UPDATE -eq 1 && -e "$dest" ]] && is_project_local "$name"; then
-      if diff -q "$f" "$dest" >/dev/null 2>&1; then
-        echo "  keep     .claude/agents/$name.md  (project-specific; not adapted yet)"
+      # Test the PROJECT marker, not a diff against upstream. A file can differ
+      # from this repo's copy merely by being an older install, so a difference
+      # is not evidence of adaptation — the marker's absence is.
+      if grep -q '<!-- PROJECT:' "$dest" 2>/dev/null; then
+        echo "  keep     .claude/agents/$name.md  (NOT adapted — still has its PROJECT marker)"
       else
-        echo "  keep     .claude/agents/$name.md  (project-specific; adapted locally)"
+        echo "  keep     .claude/agents/$name.md  (project-specific; left alone)"
       fi
       kept=$((kept + 1))
       continue
@@ -151,9 +154,12 @@ $TARGET before the change takes effect.
 
 The kept agents do not pick up upstream edits. If this repo changed something
 in them that matters — a report format, a stopping rule — merge it by hand:
-
-  diff $SRC/agents/implementer.md $TARGET/.claude/agents/implementer.md
 EOF
+  for name in $PROJECT_LOCAL_AGENTS; do
+    dest="$TARGET/.claude/agents/$name.md"
+    [[ -e "$dest" ]] || continue
+    printf '  diff %q %q\n' "$SRC/agents/$name.md" "$dest"
+  done
   exit 0
 fi
 

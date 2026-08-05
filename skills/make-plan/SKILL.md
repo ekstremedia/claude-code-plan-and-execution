@@ -61,6 +61,11 @@ Do not split what shares evidence. Two questions answered by reading the same
 files are one delegation — splitting them pays for the same search twice and
 gives you two half-views to reconcile.
 
+Three delegations is already a lot, and every report has to fit in your context
+alongside the plan you are writing. A request with more genuinely independent
+areas than that is more than one plan: say so and scope it down, rather than
+fanning out further.
+
 Dispatch independent delegations **in parallel, in a single message**, and
 **synchronously** — `run_in_background: false`. Subagents run in the background
 by default, which is wrong here: you cannot write the plan before the evidence
