@@ -10,9 +10,8 @@ The point is not saving money. It is that a big model doing grep, running test
 suites, and sequencing checkboxes is a big model not doing the thing it is good
 at — and a plan that lives only in a conversation dies with that conversation.
 
-Tested against Claude Code **2.1.220**; the transcript tooling and the doctor's
-checks re-verified on **2.1.238**. Command names and model aliases drift; the
-structure is the durable part.
+Tested against Claude Code **2.1.220**. Command names and model aliases drift;
+the structure is the durable part.
 
 ---
 
@@ -33,12 +32,6 @@ Commands become `/plan-and-execute:make-plan` and `/plan-and-execute:execute-pla
 git clone https://github.com/ekstremedia/claude-code-plan-and-execution
 ./claude-code-plan-and-execution/install.sh /path/to/your/project
 ```
-
-Later: `--update` pulls upstream changes in without touching the two adapted
-worker agents, and `--uninstall` removes exactly what install placed. After
-either, `scripts/doctor.sh /path/to/your/project` asserts the setup is still
-wired — every silently-breaking misconfiguration it can check, as PASS/FAIL
-lines instead of prose.
 
 > **The plugin path is the weaker of the two.** Claude Code ignores
 > `permissionMode`, `hooks`, and `mcpServers` in plugin-packaged agents. The two
@@ -81,9 +74,7 @@ composing with it, and refuses to run inside it.
 Sonnet orchestrates: builds a phase packet, delegates to `implementer`, reads the
 real diff plus any new untracked files, sends findings back rather than fixing
 them itself, gates `Risk: high` phases through the Opus reviewer, and runs a
-final integration check over the accumulated change set. If execution recorded
-deviations, it closes with a short retro suggesting which of them belong in
-`CLAUDE.md` or a `bin/` wrapper — suggestions only; the user decides.
+final integration check over the accumulated change set.
 
 Steering mid-run works normally — *"redo phase 3, the overlay change missed the
 trip filter"* is picked up as a follow-up delegation.
@@ -122,8 +113,7 @@ voluminous, the run is long, or the phases are independent.
 | `templates/CLAUDE.md.snippet.md` | Two lines to paste into the project. |  |
 | `templates/settings.snippet.json` | `plansDirectory`, permissions. |  |
 | `templates/bin/test-example.sh` | The test-wrapper convention. |  |
-| `scripts/verify-models.py` | Proves from a transcript which model actually ran, and where the tokens went. |  |
-| `scripts/doctor.sh` | Asserts an install is wired — the checkable gotchas as PASS/FAIL. |  |
+| `scripts/verify-models.py` | Proves from a transcript which model actually ran. |  |
 
 Workers are **subagents**, not skills, because they need isolated context as well
 as a model pin: verbose test output and file reads stay inside the worker, and
@@ -159,29 +149,6 @@ python3 scripts/verify-models.py SESSION.jsonl   # one transcript
 A skill that declares no `model:` logs no `model` key at all, so the key's
 presence is itself the proof the pin was applied. Standard library only, no `jq`.
 
-The same script sums token usage per tier: the main thread from the session
-transcript, each worker from its own transcript under `<session>/subagents/`,
-grouped by the `agentType` its `.meta.json` records. A real `/execute-plan` run,
-measured on 2.1.238:
-
-```
-  tokens (usage records, deduped by message id; out includes thinking):
-    main thread            out   39.6k   in     138   cache-read    9.7M   cache-new  258.2k
-    implementer x2         out   71.9k   in     284   cache-read     19M   cache-new  548.6k   [claude-sonnet-5]
-    plan-reviewer x3       out   54.2k   in     142   cache-read    5.3M   cache-new  289.6k   [claude-opus-5]
-    quick-implementer x3   out   22.8k   in     774   cache-read    5.1M   cache-new  200.1k   [claude-haiku-4-5-20251001]
-    worker share of output tokens: 79%
-```
-
-79% of what the run wrote came out of the workers, on their pinned models. The
-bracketed model is read from the worker's own transcript, and there it does
-reflect the pin: this session was configured on Sonnet, yet the reviewer's
-transcript records `claude-opus-5` and the quick-implementer's records Haiku —
-each worker's "session" is its own run, so the configured model *is* the
-frontmatter pin. Usage on a streamed message grows across its transcript
-records, so the script keeps only the last record per message id — summing them
-raw would count most messages several times over.
-
 ---
 
 ## Three things that break it
@@ -210,9 +177,7 @@ and the gotchas list:
 
 **<https://ekstremedia.github.io/claude-code-plan-and-execution/>**
 
-Or read `docs/` in this repository. For agents:
-[`llms.txt`](https://ekstremedia.github.io/claude-code-plan-and-execution/llms.txt)
-indexes every page and workflow file as raw fetchable markdown.
+Or read `docs/` in this repository.
 
 ## License
 

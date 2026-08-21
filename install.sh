@@ -7,7 +7,6 @@
 #   ./install.sh /path/to/project --force   overwrite existing files
 #   ./install.sh /path/to/project --templates    also copy templates/
 #   ./install.sh /path/to/project --skills-only  skills only, leave agents alone
-#   ./install.sh /path/to/project --uninstall    remove what install placed
 #
 # Copies:
 #   agents/*.md          -> <project>/.claude/agents/
@@ -18,10 +17,6 @@
 # read-only agents, which hold nothing project-specific, and never touches
 # implementer or quick-implementer — those name the project's own test and lint
 # commands and its own danger zones, so they are meant to diverge.
-#
-# --uninstall removes exactly the files install places. Worker agents that were
-# adapted to the project survive unless --force is added; plans/, the CLAUDE.md
-# snippet, and .claude/settings.json are never touched.
 #
 # Idempotent: a second run without --force changes nothing and says so.
 
@@ -34,7 +29,6 @@ FORCE=0
 TEMPLATES=0
 SKILLS_ONLY=0
 UPDATE=0
-UNINSTALL=0
 
 # Agents that name project-specific commands and danger zones. --update leaves
 # these alone; they are supposed to differ per project.
@@ -46,9 +40,8 @@ for arg in "$@"; do
     --update)      UPDATE=1; FORCE=1 ;;
     --templates)   TEMPLATES=1 ;;
     --skills-only) SKILLS_ONLY=1 ;;
-    --uninstall)   UNINSTALL=1 ;;
     -h|--help)
-      sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     -*)
       echo "unknown option: $arg" >&2; exit 2 ;;
@@ -59,12 +52,7 @@ for arg in "$@"; do
 done
 
 if [[ -z "$TARGET" ]]; then
-  echo "usage: $(basename "$0") <project-dir> [--force] [--templates] [--update] [--uninstall]" >&2
-  exit 2
-fi
-
-if [[ $UNINSTALL -eq 1 && $UPDATE -eq 1 ]]; then
-  echo "--uninstall and --update do not combine" >&2
+  echo "usage: $(basename "$0") <project-dir> [--force] [--templates]" >&2
   exit 2
 fi
 
@@ -109,65 +97,6 @@ place() {                     # place <source-file> <dest-file>
   echo "  write    ${dest#"$TARGET"/}"
   written=$((written + 1))
 }
-
-if [[ $UNINSTALL -eq 1 ]]; then
-  removed=0
-  kept=0
-
-  echo "Uninstalling from $TARGET"
-
-  if [[ $SKILLS_ONLY -eq 0 ]]; then
-    for f in "$SRC"/agents/*.md; do
-      name="$(basename "$f" .md)"
-      dest="$TARGET/.claude/agents/$name.md"
-      [[ -e "$dest" ]] || continue
-      # Same test as --update: the PROJECT marker's absence is the evidence of
-      # adaptation, not a diff against upstream.
-      if is_project_local "$name" && [[ $FORCE -eq 0 ]] \
-         && ! grep -q '<!-- PROJECT:' "$dest" 2>/dev/null; then
-        echo "  keep     .claude/agents/$name.md  (adapted to this project — add --force to remove)"
-        kept=$((kept + 1))
-        continue
-      fi
-      rm "$dest"
-      echo "  remove   .claude/agents/$name.md"
-      removed=$((removed + 1))
-    done
-  fi
-
-  for d in "$SRC"/skills/*/; do
-    name="$(basename "$d")"
-    dest="$TARGET/.claude/skills/$name/SKILL.md"
-    if [[ -e "$dest" ]]; then
-      rm "$dest"
-      echo "  remove   .claude/skills/$name/SKILL.md"
-      removed=$((removed + 1))
-    fi
-    rmdir "$TARGET/.claude/skills/$name" 2>/dev/null || true
-  done
-
-  if [[ -d "$TARGET/.claude/plan-and-execute-templates" ]]; then
-    rm -r "$TARGET/.claude/plan-and-execute-templates"
-    echo "  remove   .claude/plan-and-execute-templates/"
-    removed=$((removed + 1))
-  fi
-
-  # Only ever removes empty directories; anything else in them survives.
-  rmdir "$TARGET/.claude/agents" "$TARGET/.claude/skills" 2>/dev/null || true
-
-  echo
-  if [[ $removed -eq 0 && $kept -eq 0 ]]; then
-    echo "Nothing to remove."
-  else
-    summary="$removed removed"
-    [[ $kept -gt 0 ]] && summary="$summary, $kept kept"
-    echo "$summary."
-    echo
-    echo "Left in place, on purpose: plans/, the CLAUDE.md routing snippet, and"
-    echo "any plansDirectory or permissions entries in .claude/settings.json."
-  fi
-  exit 0
-fi
 
 echo "Installing into $TARGET"
 

@@ -9,13 +9,6 @@ description: The things that silently break a model-tiered Claude Code setup —
 Things that break this setup silently — where it keeps running and quietly stops
 doing what you think it does.
 
-The checkable ones are mechanized:
-[`scripts/doctor.sh <project>`](https://github.com/ekstremedia/claude-code-plan-and-execution/blob/main/scripts/doctor.sh)
-asserts them against a live install — the env override, the dual distribution
-paths, a dropped `permissionMode`, inert `maxTurns` keys, unadapted worker
-agents, wrapper refusal (`--probe`), a stale plugin snapshot. Prose is for
-understanding a failure; run the doctor to find one.
-
 ## Do not run `/make-plan` from plan mode
 
 Plan mode injects its own workflow into the session, and that injection outranks
@@ -55,15 +48,6 @@ A skill with no `model:` pin logs **no `model` key at all** — so the key's
 presence is itself the signal that frontmatter was applied.
 [`scripts/verify-models.py`](https://github.com/ekstremedia/claude-code-plan-and-execution/blob/main/scripts/verify-models.py)
 pulls this out of a transcript for you.
-
-The rule inverts for **subagent** transcripts, under
-`<session>/subagents/agent-<id>.jsonl`: a worker's "session" is its own run, so
-the configured model there *is* the frontmatter pin. Measured on 2.1.238, one
-Sonnet-configured `/execute-plan` session: the implementer's transcript records
-`claude-sonnet-5`, the quick-implementer's records Haiku, the reviewer's records
-`claude-opus-5` — three tiers, all diverging from nothing, each matching its
-pin. The adjacent `agent-<id>.meta.json` names the `agentType`, which is what
-lets `verify-models.py` attribute token usage per tier.
 
 ## `CLAUDE_CODE_SUBAGENT_MODEL` overrides every `model:` pin
 
