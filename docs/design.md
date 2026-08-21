@@ -19,6 +19,11 @@ The original version of this setup called it five. It listed six.
 | **Quick implementer** | `agents/quick-implementer.md` | haiku | Mechanical, exactly-specified work. Refuses anything else |
 | **Reviewer** | `agents/plan-reviewer.md` | opus | Read-only gate at risk points and at the end |
 
+"Most tokens go here" is measured, not assumed: on a real `/execute-plan` run
+(2.1.238), **79% of output tokens came out of the workers**, on their pinned
+models — `scripts/verify-models.py` prints the per-tier split from the
+transcripts, deduped and grouped by each worker's recorded `agentType`.
+
 ## Why subagents and not skills for the workers
 
 Skills can set `model:` for the turn, and can even fork into a subagent with
@@ -100,6 +105,16 @@ verification commands against the accumulated tree, then one reviewer pass over
 the whole change set — including every newly created file — against the goal,
 the success criteria, and the non-goals. Findings route back, affected checks
 re-run, and only then is it done.
+
+Then one more thing, cheap because the material is already collected: if the
+run recorded deviations or consciously declined findings, the orchestrator
+closes with a one-line-each retro on the ones that carry durable repository
+knowledge — a plan assumption the codebase contradicted, a missing test
+wrapper, a convention no document states — and names where each belongs:
+`CLAUDE.md`, a `bin/` wrapper, the plan template. Suggestions only; the
+orchestrator cannot create files, and the user decides what gets recorded. The
+deviation log preserves *what happened*; the retro is for the subset that
+should change what the **next** session reads before it starts.
 
 ## Coverage lives in the reviewer, filtering lives in the orchestrator
 
