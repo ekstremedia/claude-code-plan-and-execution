@@ -1,7 +1,7 @@
 {
   "name": "plan-and-execute",
   "description": "Plan with a big model, execute with cheap ones: /make-plan and /execute-plan plus four model-pinned agents (researcher, implementer, quick-implementer, reviewer).",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Terje Nesthus",
     "url": "https://github.com/ekstremedia"
