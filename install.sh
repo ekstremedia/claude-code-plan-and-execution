@@ -146,10 +146,27 @@ if [[ $UNINSTALL -eq 1 ]]; then
     rmdir "$TARGET/.claude/skills/$name" 2>/dev/null || true
   done
 
-  if [[ -d "$TARGET/.claude/plan-and-execute-templates" ]]; then
-    rm -r "$TARGET/.claude/plan-and-execute-templates"
-    echo "  remove   .claude/plan-and-execute-templates/"
-    removed=$((removed + 1))
+  tpl_dir="$TARGET/.claude/plan-and-execute-templates"
+  if [[ -d "$tpl_dir" ]]; then
+    # Remove only the paths install places; a file the user dropped or created
+    # in here is not ours to delete, --force or not.
+    tpl_removed=0
+    while IFS= read -r f; do
+      rel="${f#"$SRC"/templates/}"
+      if [[ -e "$tpl_dir/$rel" ]]; then
+        rm "$tpl_dir/$rel"
+        tpl_removed=$((tpl_removed + 1))
+      fi
+    done < <(find "$SRC/templates" -type f | sort)
+    find "$tpl_dir" -depth -type d -empty -delete 2>/dev/null || true
+    if [[ $tpl_removed -gt 0 ]]; then
+      echo "  remove   .claude/plan-and-execute-templates/  ($tpl_removed files)"
+      removed=$((removed + tpl_removed))
+    fi
+    if [[ -d "$tpl_dir" ]]; then
+      echo "  keep     .claude/plan-and-execute-templates/  (contains files install.sh did not place)"
+      kept=$((kept + 1))
+    fi
   fi
 
   # Only ever removes empty directories; anything else in them survives.

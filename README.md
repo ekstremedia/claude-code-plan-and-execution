@@ -164,7 +164,7 @@ transcript, each worker from its own transcript under `<session>/subagents/`,
 grouped by the `agentType` its `.meta.json` records. A real `/execute-plan` run,
 measured on 2.1.238:
 
-```
+```text
   tokens (usage records, deduped by message id; out includes thinking):
     main thread            out   39.6k   in     138   cache-read    9.7M   cache-new  258.2k
     implementer x2         out   71.9k   in     284   cache-read     19M   cache-new  548.6k   [claude-sonnet-5]
