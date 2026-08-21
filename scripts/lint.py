@@ -25,6 +25,7 @@ problems = []
 
 
 def problem(path, msg):
+    """Record one finding against a repo-relative path."""
     problems.append(f"{os.path.relpath(path, ROOT)}: {msg}")
 
 
@@ -45,11 +46,13 @@ def frontmatter(path):
 
 
 def check_common(path, fm):
+    """Rules that apply to every frontmatter block, agent or skill."""
     for key in sorted(INERT_KEYS & fm.keys()):
         problem(path, f"declares {key}: — accepted and ignored by the harness; remove it")
 
 
 def check_agent(path):
+    """An agent must carry its role's frontmatter contract."""
     name = os.path.basename(path)[: -len(".md")]
     fm = frontmatter(path)
     if fm is None:
@@ -66,6 +69,7 @@ def check_agent(path):
 
 
 def check_skill(path):
+    """A skill must stay pinned, gated, and (for execute-plan) Write-less."""
     name = os.path.basename(os.path.dirname(path))
     fm = frontmatter(path)
     if fm is None:
@@ -84,14 +88,18 @@ def check_skill(path):
 
 
 def check_json(path):
+    """A required JSON manifest must exist and parse."""
     try:
         with open(path, encoding="utf-8") as fh:
             json.load(fh)
-    except ValueError as e:
-        problem(path, f"invalid JSON: {e}")
+    except FileNotFoundError:
+        problem(path, "required JSON file is missing")
+    except (OSError, ValueError) as e:
+        problem(path, f"cannot read or parse JSON: {e}")
 
 
 def check_links(path):
+    """Every relative markdown link must point at an existing file."""
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
     for m in re.finditer(r"\]\(([^)\s]+)\)", text):
@@ -102,11 +110,12 @@ def check_links(path):
         if not target:
             continue
         resolved = os.path.normpath(os.path.join(os.path.dirname(path), target))
-        if not os.path.exists(resolved):
+        if not os.path.isfile(resolved):
             problem(path, f"relative link target missing: {href}")
 
 
 def main():
+    """Run every check; exit 1 if anything was found."""
     import glob
 
     for f in sorted(glob.glob(os.path.join(ROOT, "agents", "*.md"))):

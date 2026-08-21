@@ -60,8 +60,8 @@ Filled in during execution, not planning. The orchestrator records here what it
 changed relative to the plan and which review findings it consciously declined,
 so those decisions survive the session instead of being lost in a transcript.
 At the end of a run, /execute-plan reads this section back and suggests which
-entries carry durable repository knowledge worth promoting to CLAUDE.md or a
-bin/ wrapper.
+entries carry durable repository knowledge worth promoting to CLAUDE.md, a
+bin/ wrapper, or the plan template.
 -->
 
 ---

@@ -56,6 +56,7 @@ def sum_usage(usage_by_id):
 
 
 def fmt_tok(n):
+    """Format a token count as 999, 9.9k, 9.9M, 99M."""
     if n >= 10_000_000:
         return f"{n / 1_000_000:.0f}M"
     if n >= 1_000_000:
@@ -66,6 +67,7 @@ def fmt_tok(n):
 
 
 def usage_line(t):
+    """One aligned out/in/cache line for a usage totals dict."""
     return (
         f"out {fmt_tok(t['output_tokens']):>7}   "
         f"in {fmt_tok(t['input_tokens']):>7}   "
@@ -88,7 +90,9 @@ def scan_subagents(path):
         atype = None
         try:
             with open(sub[: -len(".jsonl")] + ".meta.json") as mh:
-                atype = json.load(mh).get("agentType")
+                meta = json.load(mh)
+            if isinstance(meta, dict):
+                atype = meta.get("agentType")
         except (OSError, ValueError):
             pass
         atype = atype or "<no meta.json>"

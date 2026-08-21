@@ -8,11 +8,19 @@ on:
     branches: [main]
   pull_request:
 
+# The steps below execute repository code (install.sh, doctor.sh), so the
+# checkout must not leave a usable token behind, and the job needs no write
+# access to anything.
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: shellcheck
         run: shellcheck install.sh scripts/doctor.sh templates/bin/test-example.sh
@@ -38,10 +46,14 @@ jobs:
           # (unadapted markers, no wrappers yet), failures not.
           scripts/doctor.sh "$proj"
 
+          # Uninstall removes only what install placed: a user file dropped
+          # into the templates directory survives, ours go.
+          touch "$proj/.claude/plan-and-execute-templates/user-notes.md"
           ./install.sh "$proj" --uninstall --force
           test ! -e "$proj/.claude/agents/implementer.md"
           test ! -e "$proj/.claude/skills/make-plan/SKILL.md"
-          test ! -e "$proj/.claude/plan-and-execute-templates"
+          test ! -e "$proj/.claude/plan-and-execute-templates/PLAN-TEMPLATE.md"
+          test -e "$proj/.claude/plan-and-execute-templates/user-notes.md"
 
           # Uninstall keeps an adapted worker agent unless --force.
           ./install.sh "$proj"
