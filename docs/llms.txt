@@ -1,0 +1,35 @@
+# claude-code-plan-and-execution
+
+> A two-command Claude Code workflow: /make-plan writes a self-contained plan
+> file with an expensive model, /execute-plan runs it in a fresh session with a
+> cheap orchestrator that delegates every code change to model-pinned worker
+> agents and gates the risky phases behind an expensive read-only reviewer.
+
+The links below point at raw markdown — that is the complete content, no
+rendering needed. The skill and agent files are the workflow itself, not
+documentation about it.
+
+## Docs
+
+- [Overview](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/index.md): What the workflow is, the shape in one screen, and the scope of the claims.
+- [Design](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/design.md): The six roles, the phase packet, the git discipline that closes a real review hole, and when not to use any of this.
+- [Gotchas](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/gotchas.md): The failure modes that break the setup silently. `scripts/doctor.sh` asserts the checkable ones.
+- [Prompting](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/prompting.md): What changed with Opus 5 and Sonnet 5, and the prompt consequences — one inverts standard advice.
+- [The advisor](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/advisor.md): What /advisor is, what is verified about it, and why it is off during orchestrated execution.
+- [README](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/README.md): Install, use, verification, and the three things that break it.
+
+## The workflow files themselves
+
+- [make-plan skill](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/skills/make-plan/SKILL.md): The planner. Research budget, plan-file contract, handoff.
+- [execute-plan skill](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/skills/execute-plan/SKILL.md): The orchestrator loop. Delegation, review, gates, integration.
+- [planning-researcher agent](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/agents/planning-researcher.md): Read-only breadth search during planning.
+- [implementer agent](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/agents/implementer.md): Writes the code and the tests, one phase at a time.
+- [quick-implementer agent](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/agents/quick-implementer.md): Mechanical, exactly-specified work. Refuses judgment.
+- [plan-reviewer agent](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/agents/plan-reviewer.md): Read-only risk gate over the real changes.
+- [Plan template](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/PLAN-TEMPLATE.md): The plan-file contract every plan fills in.
+
+## Optional
+
+- [Test wrapper example](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/bin/test-example.sh): The wrapper convention that keeps test logs out of agent context.
+- [Settings snippet](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/settings.snippet.json): plansDirectory and the read-only permission allowlist.
+- [CLAUDE.md snippet](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/CLAUDE.md.snippet.md): The two-line routing note, and why it is deliberately that short.

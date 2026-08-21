@@ -108,6 +108,17 @@ completion:
 5. Inspect the final working tree and verification state before saying it is
    done.
 
+## After completion
+
+If execution recorded deviations or consciously declined findings, end your
+final summary with a short retro on the ones that carry durable knowledge: a
+plan assumption the codebase contradicted, a missing test wrapper, a convention
+no document states. For each, one line naming where it belongs — CLAUDE.md, a
+`bin/` wrapper, the plan template. Suggest only; the user decides what gets
+recorded. A lesson that stays in the plan file's deviation log is findable; a
+lesson that would have prevented the deviation belongs where the next session
+reads it.
+
 ## Quality bar
 
 You own correctness. If an implementer reports that a phase is wrong or

@@ -5,3 +5,6 @@
 docs/_site/
 docs/.jekyll-cache/
 docs/Gemfile.lock
+
+# Python bytecode from running the scripts.
+__pycache__/

@@ -78,6 +78,10 @@ It is worth it for long or risky work. For a quick fix it is overhead — the
 - **[The advisor](advisor.md)** — `/advisor` exists now. What it is, what is
   verified about it, and why it is off inside the orchestrated workflow.
 - **[Gotchas](gotchas.md)** — the things that silently break the setup.
+  `scripts/doctor.sh` in the repository asserts the checkable ones against a
+  live install.
+- **[llms.txt](llms.txt)** — every page and workflow file as a raw-markdown
+  index, for agents reading this site.
 
 ---
 
@@ -107,7 +111,9 @@ does not leak into the workers.
 
 You can check that from a transcript rather than taking it on trust —
 `scripts/verify-models.py` in the repository prints which model each skill
-invocation actually ran on. Do not read the `model` field on assistant messages;
+invocation actually ran on, and where the tokens went: on a measured
+`/execute-plan` run, 79% of output tokens came out of the workers, on their
+pinned models. Do not read the `model` field on assistant messages;
 it records the session's configured model and will report Opus for an entire run
 that executed on Sonnet. [Gotchas](gotchas.md) has the details.
 
@@ -117,8 +123,10 @@ that executed on Sonnet. [Gotchas](gotchas.md) has the details.
 
 Everything asserted about Claude Code's behaviour was checked against the
 shipping binary at version **2.1.220** — frontmatter schemas, settings keys, the
-advisor tool, and the plugin loading rules. Where something could not be
-verified, the page says so rather than guessing.
+advisor tool, and the plugin loading rules. The transcript tooling and the
+doctor's checks were re-verified on **2.1.238**, against the binary and against
+live transcripts. Where something could not be verified, the page says so
+rather than guessing.
 
 Model aliases float: `model: opus` resolves to whatever "opus" currently means,
 and that changes under you on a model release. Treat a release as a prompt-review
