@@ -42,8 +42,18 @@ jobs:
           out="$(./install.sh "$proj")"
           grep -q 'Nothing changed' <<<"$out"
 
-          # A fresh install must be doctor-clean: warnings allowed
-          # (unadapted markers, no wrappers yet), failures not.
+          # Merge the settings snippet the way the README tells a user to
+          # (the // comment keys stripped). It carries the foreground switch
+          # doctor asserts, and this proves the snippet is valid settings.
+          python3 - "$proj" <<'PY'
+          import json, sys, pathlib
+          src = json.load(open("templates/settings.snippet.json"))
+          dst = pathlib.Path(sys.argv[1]) / ".claude" / "settings.json"
+          dst.write_text(json.dumps({k: v for k, v in src.items() if not k.startswith("//")}, indent=2))
+          PY
+
+          # A fresh install plus the snippet must be doctor-clean: warnings
+          # allowed (unadapted markers, no wrappers yet), failures not.
           scripts/doctor.sh "$proj"
 
           # Uninstall removes only what install placed: a user file dropped
