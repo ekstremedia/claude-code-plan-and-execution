@@ -39,7 +39,8 @@ Six words the rest of this site assumes:
 - **Session** — one conversation, in one directory. Close it and its context is
   gone.
 - **Model** — which Claude is doing the work. Bigger models reason better, cost
-  more, and are slower. `/model` switches mid-session.
+  more, and are slower. `/model` switches mid-session, and `/effort` sets how
+  much thinking budget it spends per turn.
 - **Subagent** — a separate Claude with its own context window and its own model,
   spawned to do one job and report a summary back. It never sees the parent
   conversation, so its noise never lands in yours. Defined by a markdown file in
@@ -77,6 +78,9 @@ It is worth it for long or risky work. For a quick fix it is overhead — the
   three prompt consequences. One of them inverts standard prompting advice.
 - **[The advisor](advisor.md)** — `/advisor` exists now. What it is, what is
   verified about it, and why it is off inside the orchestrated workflow.
+- **[Composing](composing.md)** — working alongside skill packs this repository
+  does not depend on: key on the artifacts, keep the references soft, keep one
+  reviewer per change. Worked through with mattpocock/skills.
 - **[Gotchas](gotchas.md)** — the things that silently break the setup.
   `scripts/doctor.sh` in the repository asserts the checkable ones against a
   live install.
@@ -96,7 +100,7 @@ Session 1 — planning        (plan mode OFF — it overrides the skill)
       ├── planner reads the decisive files itself
       └── writes plans/MyPlan.md
 
-Session 2 — execution (fresh)
+Session 2 — execution (fresh: /model sonnet, /effort medium)
   /execute-plan plans/MyPlan.md
       │  model: sonnet, effort medium, Write withheld
       ├── phase packet ──→ implementer        (sonnet, effort high)
@@ -107,15 +111,25 @@ Session 2 — execution (fresh)
 ```
 
 Every model above is pinned in the agent's own frontmatter. The session model
-does not leak into the workers.
+does not leak into the workers — though a delegation that passes an explicit
+`model` argument overrides that pin, which is how one measured run carried a
+lost skill pin all the way down into the worker tier.
 
-You can check that from a transcript rather than taking it on trust —
+The two **skills** are the weaker pin: skill frontmatter applies for the current
+turn only, and a backgrounded subagent's completion notification starts a new
+turn on the session's model and effort. The workers therefore declare
+`background: false` so each delegation returns inline, and the session should be
+set to Sonnet at `medium` before `/execute-plan` — hence the two slash commands
+in the sketch above. [Gotchas](gotchas.md) has the measurements.
+
+You can check all of it from a transcript rather than taking it on trust —
 `scripts/verify-models.py` in the repository prints which model each skill
-invocation actually ran on, and where the tokens went: on a measured
-`/execute-plan` run, 79% of output tokens came out of the workers, on their
-pinned models. Do not read the `model` field on assistant messages;
-it records the session's configured model and will report Opus for an entire run
-that executed on Sonnet. [Gotchas](gotchas.md) has the details.
+invocation was pinned to, where the tokens went (on a measured `/execute-plan`
+run, 79% of output tokens came out of the workers, on their pinned models), and
+the exact record where a skill pin was dropped. Do not read the `model` field on
+assistant messages as the pin record: it recorded the session's configured model
+up to 2.1.239 and the effective model on 2.1.259, so it answers a different
+question either way. [Gotchas](gotchas.md) has the details.
 
 ---
 
@@ -125,8 +139,10 @@ Everything asserted about Claude Code's behaviour was checked against the
 shipping binary at version **2.1.220** — frontmatter schemas, settings keys, the
 advisor tool, and the plugin loading rules. The transcript tooling and the
 doctor's checks were re-verified on **2.1.238**, against the binary and against
-live transcripts. Where something could not be verified, the page says so
-rather than guessing.
+live transcripts. The skill-pin drop was measured on **2.1.239**, **2.1.251**
+and **2.1.259**; `background: false` as its fix was verified headless on
+**2.1.272** and is unverified in an interactive session. Where something could
+not be verified, the page says so rather than guessing.
 
 Model aliases float: `model: opus` resolves to whatever "opus" currently means,
 and that changes under you on a model release. Treat a release as a prompt-review

@@ -16,7 +16,8 @@ documentation about it.
 - [Gotchas](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/gotchas.md): The failure modes that break the setup silently. `scripts/doctor.sh` asserts the checkable ones.
 - [Prompting](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/prompting.md): What changed with Opus 5 and Sonnet 5, and the prompt consequences — one inverts standard advice.
 - [The advisor](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/advisor.md): What /advisor is, what is verified about it, and why it is off during orchestrated execution.
-- [README](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/README.md): Install, use, verification, and the three things that break it.
+- [Composing](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/docs/composing.md): Working alongside skill packs this repository does not depend on — key on the artifacts, keep the references soft, keep one reviewer per change.
+- [README](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/README.md): Install, use, verification, and the four things that break it.
 
 ## The workflow files themselves
 

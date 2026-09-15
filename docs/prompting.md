@@ -73,7 +73,9 @@ overthink; do not reach for it reflexively.
   every N steps" scaffolding can go.
 - Its `effort` defaults to `high`, and `medium` is a real cost lever for the
   orchestrator tier. This setup uses `medium` for orchestration and `high` for
-  implementation.
+  implementation — but a skill's `effort:` applies for the current turn only, so
+  the orchestrator holds `medium` only while its delegations stay in the
+  foreground. Set the session's effort too. See [Gotchas](gotchas.md).
 
 ## Tokenization
 

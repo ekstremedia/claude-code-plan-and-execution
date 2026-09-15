@@ -17,8 +17,16 @@ problem is missing, ask. If only the problem is given, derive a name.
 
 ## Preflight
 
-State the model you are running as. If it is not Opus, say so — the tiering
-assumes an expensive planner, and the user may want to restart.
+State the model and the effort level you are running as. If the model is not
+Opus, say so — the tiering assumes an expensive planner, and the user may want
+to restart.
+
+Say which model the **session** is on as well, where you can tell: this skill's
+`model: opus` / `effort: high` pin applies to the current turn, and a research
+delegation that returns as a background notification starts a new turn on the
+session model at the session effort. Delegations here stay in the foreground
+for that reason (see Research), but if the session is on a cheap model, a
+dropped pin means the plan gets written by that model with nothing saying so.
 
 Then check whether **plan mode is active**. Signs: a plan-mode system message, a
 harness-supplied plan file path (typically under `~/.claude/plans/`), a "Plan
@@ -36,6 +44,13 @@ repository and every research delegation went to `Explore` at planner rates.
 `/make-plan` replaces plan mode; the two do not compose.
 
 ## Research
+
+Read the project's own domain docs first where they exist: `CONTEXT.md` at the
+root for the vocabulary, and any `docs/adr/` entries covering the area for
+decisions already settled. Name concepts the way the glossary names them, and
+say so explicitly where the plan contradicts an ADR. Where those files are
+absent, continue without comment — they are a convention some skill packs
+install, not a requirement of this workflow.
 
 Delegate breadth-first search to the **`planning-researcher`** agent — locating
 candidates, mapping conventions, finding the tests, disproving the obvious
@@ -66,11 +81,21 @@ alongside the plan you are writing. A request with more genuinely independent
 areas than that is more than one plan: say so and scope it down, rather than
 fanning out further.
 
-Dispatch independent delegations **in parallel, in a single message**, and
-**synchronously** — `run_in_background: false`. Subagents run in the background
-by default, which is wrong here: you cannot write the plan before the evidence
-arrives, and a researcher whose report lands after you have given up and started
-grepping yourself has been paid for and discarded.
+Dispatch independent delegations **in parallel, in a single message**. They run
+in the **foreground**, because `planning-researcher` declares `background:
+false` in its own frontmatter: the delegation's tool result is the researcher's
+report itself. (Verified headless on Claude Code 2.1.272; the interactive path
+is unverified.) If one instead returns *"Async agent launched successfully"*,
+that agent file has lost the line — or it is the plugin-packaged copy, and
+whether plugin agents honour `background:` is unverified. Say so rather than
+continuing.
+
+The foreground matters twice over. You cannot write the plan before the
+evidence arrives, and a researcher whose report lands after you have given up
+and started grepping yourself has been paid for and discarded. And a background
+completion arrives as a *new turn*, which drops this skill's model and effort
+pin — everything after it, including writing the plan, runs on the session
+model at the session effort.
 
 Then read the decisive files yourself. The researcher discovers; you verify the
 evidence the root cause rests on. A plan is treated as authoritative once
@@ -112,7 +137,18 @@ That path is canonical and it is the only copy. Do not also write to
 State the base commit you planned against, then give exactly this handoff:
 
 > Plan written to `plans/<PlanName>.md`.
-> Start a fresh session, then run: `/execute-plan plans/<PlanName>.md`
+> Start a fresh session — or `/clear` — set `/model sonnet` and `/effort
+> medium` (or start `claude --model sonnet --effort medium`), then run:
+> `/execute-plan plans/<PlanName>.md`
 
-The fresh session is not a formality. It keeps this planning conversation out of
-the executor's context and lets execution run on a cheaper model.
+The fresh session is not a formality: it keeps this planning conversation out of
+the executor's context. Setting the session model and effort is not a formality
+either. `/execute-plan`'s own `model: sonnet` / `effort: medium` pin covers the
+first turn, and the session's settings are what the run falls back to — so the
+session is what actually decides the orchestrator's tier. `/clear` keeps the
+session's current model and effort, so set them explicitly either way.
+
+Where the setup has a skill for interrogating a document — `grilling` and
+`grill-with-docs` are the names it usually ships under — offer it as an optional
+step on the written plan before that fresh session. A plan is cheapest to fix
+while it is still only a file.

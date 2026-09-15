@@ -36,15 +36,10 @@ skill never had the last word. `/make-plan` therefore checks for plan mode and
 refuses, and `plansDirectory` is worth setting so that even the plan-mode path
 stays inside the repository.
 
-## `message.model` in a transcript is not the effective model
+## `message.model` is not the pin record, and what it records changed
 
-Every assistant turn in a session `.jsonl` records the *session's* configured
-model, not the one that ran the turn. A `/execute-plan` run measured here logged
-`claude-opus-5` on all 521 main-thread turns while the skill was executing on
-Sonnet. Reading that field will tell you the tiering is broken when it is fine.
-
-The authoritative record is the `command_permissions` attachment emitted when a
-skill is invoked:
+The authoritative record of a skill's model pin is the `command_permissions`
+attachment emitted when the skill is invoked:
 
 ```json
 {"type": "command_permissions", "allowedTools": ["Read","Glob","Grep","Bash","Write","Agent"], "model": "claude-opus-5"}
@@ -56,14 +51,79 @@ presence is itself the signal that frontmatter was applied.
 [`scripts/verify-models.py`](https://github.com/ekstremedia/claude-code-plan-and-execution/blob/main/scripts/verify-models.py)
 pulls this out of a transcript for you.
 
-The rule inverts for **subagent** transcripts, under
-`<session>/subagents/agent-<id>.jsonl`: a worker's "session" is its own run, so
-the configured model there *is* the frontmatter pin. Measured on 2.1.238, one
+The `model` field on assistant records answers a different question, and the
+answer changed between versions. On **2.1.220–2.1.239** it recorded the
+*session's* configured model for the whole run: one `/execute-plan` session
+logged `claude-opus-5` on all 521 main-thread turns while the skill was
+executing on Sonnet. On **2.1.259** it recorded the *effective* model: an Opus
+session logged `claude-sonnet-5` for the `/execute-plan` turn, then
+`claude-opus-5` from the first subagent notification — which is where the pin
+was lost, not where the tiering was designed to hand over. Either way, read as
+"which model ran this skill" it gives a wrong answer, for two different reasons.
+
+The field that held up across every version measured here is the top-level
+**`effort`** on assistant records: it is present on every one of them, and it
+moved at the pin drop in all three runs below.
+
+For **subagent** transcripts, under `<session>/subagents/agent-<id>.jsonl`,
+`message.model` is worth reading: a worker's "session" is its own run, so the
+model recorded there is what the worker actually ran — the frontmatter pin,
+unless the delegation passed an explicit `model` override. Measured on 2.1.238, one
 Sonnet-configured `/execute-plan` session: the implementer's transcript records
 `claude-sonnet-5`, the quick-implementer's records Haiku, the reviewer's records
 `claude-opus-5` — three tiers, all diverging from nothing, each matching its
 pin. The adjacent `agent-<id>.meta.json` names the `agentType`, which is what
 lets `verify-models.py` attribute token usage per tier.
+
+## A skill's model pin dies at the first subagent notification
+
+A skill's `model:` and `effort:` frontmatter *"applies for the rest of the
+current turn"*, and *"the session model resumes when you send your next
+prompt"* ([skills docs](https://code.claude.com/docs/en/skills.md)). The second
+half is the trap: a subagent completion is a new turn, and nobody sent a prompt.
+
+Every delegation is backgrounded by default now, and its completion arrives as a
+user record with `origin.kind: task-notification` and `promptSource: system`.
+That record starts a new turn, and the new turn runs on the **session** model at
+the **session** effort. Nothing in the transcript announces it.
+
+Measured in three real `/execute-plan` runs in one project, with no user input
+between the skill turn and the flip:
+
+| Date | Version | Session | Skill turn | From the first notification |
+|---|---|---|---|---|
+| 2026-08-22 | 2.1.239 | Fable, `xhigh` | fable, `medium` | fable, `xhigh` (12:09) |
+| 2026-08-29 | 2.1.251 | Sonnet, `xhigh` | sonnet, `medium` | sonnet, `xhigh` |
+| 2026-09-06 | 2.1.259 | Opus, `xhigh` | `claude-sonnet-5`, `medium` | `claude-opus-5`, `xhigh` (17:28:44) |
+
+The 2.1.259 run then cascaded into the worker tier: the now-Opus orchestrator
+passed `model: opus` explicitly on all seven `implementer` delegations — the
+`Agent` tool's per-invocation `model` parameter overrides the agent file's
+`model:` — and those subagent transcripts record `claude-opus-5` against a
+`model: sonnet` agent definition. One dropped pin can take the rest of the
+tiering with it.
+
+`/make-plan` has the same shape from the other side: a 2026-08-18 run in a Fable
+session, skill pinned `opus`, ran everything after the first
+`planning-researcher` notification on Fable at `high` — including writing the
+plan.
+
+Two defences, and use both:
+
+- **Keep the delegations in the foreground.** An agent that declares
+  `background: false` in its frontmatter returns its report as the delegation's
+  tool result, so the turn never ends and the pin never lapses. See *Subagents
+  are backgrounded by default* below for what is verified about it.
+- **Set the session, not just the skill.** `/model sonnet` and `/effort medium`
+  before `/execute-plan`, or `claude --model sonnet --effort medium`. `/clear`
+  keeps the session's current model and effort, so clearing is not setting them.
+  `modelSettings.<model>.effortLevel` in settings is the standing version of the
+  same safety net — see `templates/settings.snippet.json`.
+
+The one-line check: the delegation's tool result is the worker's report rather
+than *"Async agent launched successfully"*, and the `effort` field on assistant
+records stays at the skill's value for the whole run. `verify-models.py` prints
+a WARNING naming the exact record where it stopped.
 
 ## `CLAUDE_CODE_SUBAGENT_MODEL` overrides every `model:` pin
 
@@ -144,22 +204,38 @@ phase — the implementer already knows what it did. Never for a reviewer: the
 value of a review is the fresh context, and a resumed reviewer is reviewing its
 own framing.
 
-## Subagents run in the background by default
+## Subagents are backgrounded by default, and `run_in_background` is gone
 
-The `Agent` tool backgrounds delegations unless told otherwise, and both skills
-here are built on the opposite assumption: the planner needs the research before
-it can write the plan, and the orchestrator needs the code on disk before step 4
-can diff it. Backgrounded, the orchestrator reviews an empty diff and the
-planner starts re-deriving evidence that is still in flight.
+Both skills here are built on the opposite assumption: the planner needs the
+research before it can write the plan, and the orchestrator needs the code on
+disk before step 4 can diff it. Backgrounded, the orchestrator reviews an empty
+diff, the planner starts re-deriving evidence that is still in flight, and both
+lose their model pin at the notification (*A skill's model pin dies at the first
+subagent notification*, above).
 
-The caller is supposed to foreground a delegation whose result it needs, and
-often does. Do not rely on it. Counted across local transcripts: `implementer`
-backgrounded eight times inside a single `/execute-plan` run — a delegation
-whose result the very next step diffs.
+`run_in_background: false` used to be the instruction for this, and it is dead
+text now. Across 355 `Agent` calls in local transcripts (2.1.233–2.1.272) it was
+passed 5 times, and all 5 tool results came back *"Async agent launched
+successfully."* — the harness ignored it. The current tool schema, on 2.1.272,
+has no such parameter at all.
 
-So pass `run_in_background: false` explicitly on every delegation in both
-skills. The symptoms do not look like a scheduling bug — they look like the
-agent losing its answer.
+The documented replacement is `background: false` in the **agent's** frontmatter
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents.md)), or
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the environment to force every
+delegation into the foreground. All four agents here carry the frontmatter line;
+`scripts/doctor.sh` asserts it.
+
+**Verified headless on 2.1.272**: an agent declaring `background: false`,
+delegated from `claude -p --model sonnet`, returned its report inline as the
+`Agent` tool result — no "Async agent launched", no task-notification record,
+same turn, two turns total. **Not verified interactively**: agent definitions
+load at session start, so the running session could not test its own change. A
+plugin-packaged agent is unverified too — plugin agents are known to drop
+`permissionMode`, `hooks` and `mcpServers`, and whether `background:` survives
+packaging has not been measured here.
+
+The symptoms of losing this do not look like a scheduling bug. They look like
+the agent losing its answer, and like a run that silently changed model.
 
 ## `maxTurns` on an agent is not enforced — verify before trusting it
 

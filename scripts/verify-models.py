@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """Show which model a skill invocation actually ran on, from a session transcript.
 
-The `model` field on assistant messages records the session's configured model,
-not the one that ran the turn — it will happily say "opus" for 500 turns while a
-`model: sonnet` skill is executing. The authoritative record is the
-`command_permissions` attachment the harness writes when a skill is invoked.
+The authoritative record of a skill's pin is the `command_permissions`
+attachment the harness writes when the skill is invoked. The `model` field on
+assistant messages is not that record: up to 2.1.239 it logged the session's
+configured model regardless of the pin, and on 2.1.259 it logged the effective
+model.
+
+A skill's `model:`/`effort:` pin also only applies for the current turn. A
+backgrounded subagent's completion arrives as a `task-notification` user record,
+which starts a new turn on the session model at the session effort — so the
+script watches the top-level `effort` field (present on every assistant record)
+and reports the first record where the pin was lost.
 
 Also sums token usage per tier: the main thread from the session transcript,
 and each worker from its own transcript under `<session>/subagents/`, grouped
@@ -140,11 +147,18 @@ def scan(path):
     """Return a summary dict for one transcript, or None if unreadable."""
     invocations = []
     delegations = Counter()
-    backgrounded = Counter()
     logged_models = Counter()
     usage_by_id = {}
     cwd = None
     first_ts = None
+    task_notifications = 0
+    pin_drops = []
+    # Pin tracking: a command_permissions record arms the watch, the next
+    # assistant record sets the baseline, and the first record whose effort or
+    # model differs from it is where the pin was lost.
+    baseline = None
+    watching = False
+    last_user_kind = None
 
     try:
         fh = open(path, errors="replace")
@@ -174,12 +188,37 @@ def scan(path):
                         "ts": rec.get("timestamp"),
                     }
                 )
+                if att.get("model"):
+                    baseline = None
+                    watching = True
+
+            if rec.get("type") == "user":
+                origin = rec.get("origin")
+                kind = origin.get("kind") if isinstance(origin, dict) else None
+                last_user_kind = kind
+                if kind == "task-notification":
+                    task_notifications += 1
 
             msg = rec.get("message")
             if not isinstance(msg, dict):
                 continue
 
             if rec.get("type") == "assistant" and not rec.get("isSidechain"):
+                if watching:
+                    state = (rec.get("effort"), msg.get("model"))
+                    if baseline is None:
+                        baseline = state
+                    elif state != baseline:
+                        pin_drops.append(
+                            {
+                                "from": baseline,
+                                "to": state,
+                                "ts": rec.get("timestamp"),
+                                "after_notification":
+                                    last_user_kind == "task-notification",
+                            }
+                        )
+                        watching = False
                 if msg.get("model"):
                     logged_models[msg["model"]] += 1
                 u = msg.get("usage")
@@ -193,10 +232,6 @@ def scan(path):
                     inp = block.get("input") or {}
                     name = inp.get("subagent_type") or "?"
                     delegations[name] += 1
-                    # Absence counts: the Agent tool backgrounds delegations
-                    # unless `run_in_background: false` is passed explicitly.
-                    if inp.get("run_in_background") is not False:
-                        backgrounded[name] += 1
 
     return {
         "path": path,
@@ -204,9 +239,10 @@ def scan(path):
         "ts": first_ts,
         "invocations": invocations,
         "delegations": delegations,
-        "backgrounded": backgrounded,
         "logged_models": logged_models,
         "usage": sum_usage(usage_by_id),
+        "task_notifications": task_notifications,
+        "pin_drops": pin_drops,
     }
 
 
@@ -242,6 +278,12 @@ def report(summary):
         ]
         print("  delegations: " + ", ".join(parts))
 
+    if summary.get("task_notifications"):
+        print(
+            f"  task-notifications: {summary['task_notifications']} "
+            f"(each one starts a new turn)"
+        )
+
     warnings = []
     for name, n in summary["delegations"].items():
         if name in INHERITS_SESSION_MODEL:
@@ -254,12 +296,23 @@ def report(summary):
                 f"{name} is the plugin copy — plugin agents drop permissionMode, "
                 f"so a read-only agent is only prompt-enforced"
             )
-    for name, n in summary.get("backgrounded", Counter()).items():
-        if unqualify(name) in OURS:
-            warnings.append(
-                f"{name} x{n} was not delegated with run_in_background: false — "
-                f"backgrounded, the caller resumes before the work lands"
-            )
+    for drop in summary.get("pin_drops", []):
+        (from_effort, from_model), (to_effort, to_model) = drop["from"], drop["to"]
+        changed = []
+        if from_effort != to_effort:
+            changed.append(f"effort {from_effort}→{to_effort}")
+        if from_model != to_model:
+            changed.append(f"model {from_model}→{to_model}")
+        cause = (
+            "following a task-notification"
+            if drop["after_notification"]
+            else "with no task-notification immediately before it"
+        )
+        warnings.append(
+            f"{' ('.join(changed)}{')' if len(changed) > 1 else ''} at "
+            f"{(drop['ts'] or '')[11:16]} {cause} — the skill pin was dropped; "
+            f"the rest of the run ran at the session model/effort"
+        )
     for w in warnings:
         print(f"  WARNING: {w}")
 
@@ -294,7 +347,7 @@ def report(summary):
         shown = ", ".join(
             f"{m} x{n}" for m, n in summary["logged_models"].most_common()
         )
-        print(f"  message.model (session config, NOT effective): {shown}")
+        print(f"  message.model (version-dependent, NOT the pin record): {shown}")
     print()
 
 

@@ -19,8 +19,16 @@ so "the plan file only" is a rule you hold yourself to, not one it enforces.
 
 Plan file: $ARGUMENTS (required — ask if missing).
 
-Open by stating the model you are running as. If it is not Sonnet, say so: the
-tiering assumes a cheap orchestrator, and the user may want to restart.
+Open by stating the model **and the effort level** you are running as. If the
+model is not Sonnet, say so: the tiering assumes a cheap orchestrator, and the
+user may want to restart.
+
+This skill's `model: sonnet` / `effort: medium` pin applies to the current turn
+only, and it holds across the run only while every delegation stays in the
+foreground — a completion notification from a backgrounded agent starts a new
+turn on the *session* model at the *session* effort. So the session itself
+should have been set to Sonnet before `/execute-plan` was invoked: `/model
+sonnet` and `/effort medium`, or `claude --model sonnet --effort medium`.
 
 ## Preflight
 
@@ -57,12 +65,27 @@ Batch several fully-specified mechanical nits into ONE delegation rather than
 one each. When in doubt, use `implementer`. If `quick-implementer` refuses,
 re-delegate to `implementer` — never force it.
 
-Delegate **synchronously** — `run_in_background: false`. Subagents run in the
-background by default, and a backgrounded implementer hands you control before
-it has written a line: step 4 then reviews an empty diff, and the phase either
-looks finished when nothing happened or gets checked off against work that
-lands minutes later. One phase at a time means one implementer at a time,
-waited for.
+Where the project has a test-first skill installed (`tdd` is the usual name) and
+the phase names tests, say so in the packet and let the implementer follow it.
+The packet is the only channel: the worker cannot see this conversation, so a
+convention you do not state is a convention it will not apply.
+
+Delegations run in the **foreground**, because every worker agent declares
+`background: false` in its own frontmatter: the delegation's tool result is the
+worker's report itself. (Verified headless on Claude Code 2.1.272; the
+interactive path is unverified.) If a delegation instead returns *"Async agent
+launched successfully"*, that agent file has lost the line — or it is the
+plugin-packaged copy, and whether plugin agents honour `background:` is
+unverified. Say so rather than continuing.
+
+Two things break when a delegation is backgrounded, and neither reads as a
+scheduling problem. A backgrounded implementer hands you control before it has
+written a line: step 4 then reviews an empty diff, and the phase either looks
+finished when nothing happened or gets checked off against work that lands
+minutes later. And its completion notification arrives as a *new turn*, which
+drops this skill's model and effort pin — the rest of the run continues on the
+session model at the session effort, silently. One phase at a time means one
+implementer at a time, waited for.
 
 **4. Review the actual changes, not the summary.**
 
@@ -86,8 +109,9 @@ fresh implementer. Reviewers are always fresh — never resume one.
 
 **6. Gate high-risk phases.** After any phase marked `Risk: high` — and after
 migrations, authorization, security, public API, shared infrastructure —
-delegate the phase's changes to `plan-reviewer` (read-only, fresh context, also
-`run_in_background: false`). Name the files, including new untracked ones. It reports every plausible finding with
+delegate the phase's changes to `plan-reviewer` (read-only, fresh context,
+foreground like every other delegation). Name the files, including new
+untracked ones. It reports every plausible finding with
 a severity and a confidence and filters nothing: **you are the filter.** Route
 what matters back to an implementer, and record anything you consciously decline
 in the plan file, so the decision is on the record rather than lost.
@@ -114,8 +138,9 @@ If execution recorded deviations or consciously declined findings, end your
 final summary with a short retro on the ones that carry durable knowledge: a
 plan assumption the codebase contradicted, a missing test wrapper, a convention
 no document states. For each, one line naming where it belongs — CLAUDE.md, a
-`bin/` wrapper, the plan template. Suggest only; the user decides what gets
-recorded. A lesson that stays in the plan file's deviation log is findable; a
+`bin/` wrapper, the plan template, the project's `CONTEXT.md` glossary, or an
+issue in whatever tracker `docs/agents/issue-tracker.md` names where that file
+exists. Suggest only; the user decides what gets recorded. A lesson that stays in the plan file's deviation log is findable; a
 lesson that would have prevented the deviation belongs where the next session
 reads it.
 
@@ -127,7 +152,14 @@ the plan and record the deviation in it.
 
 Keep the advisor off in this mode if your setup has one configured. Explicit
 review gates and an always-available advisor are two strong models doing
-overlapping control work, and the gates here are deterministic.
+overlapping control work, and the gates here are deterministic. The same holds
+for any general-purpose review skill the project ships: `plan-reviewer` is this
+workflow's reviewer, and a broader review belongs after the final integration
+gate, on the finished change set.
+
+If a merge or rebase conflict interrupts a phase, resolve it with the project's
+conflict-resolution skill where it has one, then re-read the phase's diff before
+continuing — a resolution is an edit you have not reviewed yet.
 
 Do not commit unless the user asked. If they did, commit per phase, on a branch
 if you are on the default branch.

@@ -19,3 +19,7 @@ defaults:
 exclude:
   - Gemfile
   - Gemfile.lock
+  # Per-repo agent config written by /setup-matt-pocock-skills — machine
+  # instructions, not site content. Keep the path (his skills read it there),
+  # keep it off the published site.
+  - agents/

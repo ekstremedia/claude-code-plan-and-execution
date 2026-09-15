@@ -19,6 +19,13 @@
 # implementer or quick-implementer — those name the project's own test and lint
 # commands and its own danger zones, so they are meant to diverge.
 #
+# --update does make one edit to those two files: if an adapted worker agent's
+# frontmatter has no `background:` key it inserts `background: false` after the
+# `model:` line and says so. Without it the delegation is backgrounded, the
+# orchestrator reviews an empty diff, and the invoking skill's model/effort pin
+# drops at the completion notification. An existing `background:` value of any
+# kind is left alone.
+#
 # --uninstall removes exactly the files install places. Worker agents that were
 # adapted to the project survive unless --force is added; plans/, the CLAUDE.md
 # snippet, and .claude/settings.json are never touched.
@@ -48,7 +55,7 @@ for arg in "$@"; do
     --skills-only) SKILLS_ONLY=1 ;;
     --uninstall)   UNINSTALL=1 ;;
     -h|--help)
-      sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     -*)
       echo "unknown option: $arg" >&2; exit 2 ;;
@@ -88,6 +95,7 @@ fi
 written=0
 skipped=0
 kept=0
+patched=0
 
 is_project_local() {         # is_project_local <agent-name>
   local name="$1" a
@@ -95,6 +103,28 @@ is_project_local() {         # is_project_local <agent-name>
     [[ "$name" == "$a" ]] && return 0
   done
   return 1
+}
+
+# --update never overwrites an adapted worker agent, so an upstream frontmatter
+# line never reaches one. This is the line that has to be there.
+ensure_background() {        # ensure_background <agent-file>
+  local dest="$1" fm tmp
+  fm="$(awk '/^---[[:space:]]*$/ { n++; next } n == 1 { print } n >= 2 { exit }' "$dest")"
+  if grep -Eq '^background:' <<<"$fm"; then
+    return 0
+  fi
+  if ! grep -Eq '^model:' <<<"$fm"; then
+    echo "  note     ${dest#"$TARGET"/}  (no model: line in frontmatter — add 'background: false' by hand)"
+    return 0
+  fi
+  tmp="$dest.plan-and-execute.tmp"
+  awk '
+    /^---[[:space:]]*$/ { n++ }
+    { print }
+    n == 1 && !done && /^model:/ { print "background: false"; done = 1 }
+  ' "$dest" > "$tmp" && mv "$tmp" "$dest"
+  echo "  patch    ${dest#"$TARGET"/}  (inserted background: false — delegations must return in the foreground)"
+  patched=$((patched + 1))
 }
 
 place() {                     # place <source-file> <dest-file>
@@ -203,6 +233,7 @@ if [[ $SKILLS_ONLY -eq 0 ]]; then
         echo "  keep     .claude/agents/$name.md  (project-specific; left alone)"
       fi
       kept=$((kept + 1))
+      ensure_background "$dest"
       continue
     fi
 
@@ -227,9 +258,10 @@ fi
 echo
 summary="$written written, $skipped skipped"
 [[ $kept -gt 0 ]] && summary="$summary, $kept kept (project-specific)"
+[[ $patched -gt 0 ]] && summary="$summary, $patched patched"
 echo "$summary."
 
-if [[ $written -eq 0 ]]; then
+if [[ $written -eq 0 && $patched -eq 0 ]]; then
   echo "Nothing changed."
   exit 0
 fi

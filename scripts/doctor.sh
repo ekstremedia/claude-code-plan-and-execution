@@ -182,6 +182,11 @@ if [[ $local_agents -gt 0 ]]; then
     if ! frontmatter "$f" | grep -Eq '^model:[[:space:]]*[^[:space:]]'; then
       fail "$a has no model: pin — it will inherit the session model"
     fi
+    if frontmatter "$f" | grep -Eq '^background:[[:space:]]*false[[:space:]]*$'; then
+      pass "$a declares background: false — its report comes back as the delegation's tool result"
+    else
+      fail "$a lacks background: false — delegations are backgrounded by default, so the caller reviews an empty diff and the invoking skill's model/effort pin drops at the completion notification"
+    fi
   done
 fi
 

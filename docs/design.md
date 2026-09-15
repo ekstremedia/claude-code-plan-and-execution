@@ -26,7 +26,8 @@ transcripts, deduped and grouped by each worker's recorded `agentType`.
 
 ## Why subagents and not skills for the workers
 
-Skills can set `model:` for the turn, and can even fork into a subagent with
+Skills can set `model:` for the turn — literally for the turn, which is its own
+trap, see [Gotchas](gotchas.md) — and can even fork into a subagent with
 `context: fork`. But workers need **isolated context** as much as they need a
 model pin: verbose test output, file reads, and failed attempts stay inside the
 worker, and only a short report crosses back. Subagents give both. That isolation
@@ -262,6 +263,17 @@ phase, assembling a packet, and checking a box do not need the same reasoning
 budget as writing the code. So the orchestrator skill runs `medium` and
 `implementer` overrides back up to `high`. Without the explicit `effort: high` on
 the implementer it would inherit the orchestrator's `medium`.
+
+The orchestrator's `medium` is conditional, and the condition is invisible while
+it holds. Skill frontmatter applies for the current turn only, so `medium`
+survives a run only while every delegation stays in the foreground: a
+backgrounded worker's completion notification starts a new turn at the
+*session's* effort. Measured `medium`→`xhigh` at the first notification in three
+runs (2.1.239, 2.1.251, 2.1.259). Two defences, both in use here — the worker
+agents declare `background: false` so delegations return inline, and the session
+should be set to Sonnet at `medium` before `/execute-plan` is invoked
+(`modelSettings.claude-sonnet-5.effortLevel` in settings makes that standing).
+See [Gotchas](gotchas.md).
 
 Agent `effort` is fixed per definition — there is no per-invocation knob. So
 "bump the final review to `xhigh`" is not something the orchestrator can do; it
