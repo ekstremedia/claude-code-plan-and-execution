@@ -182,12 +182,35 @@ if [[ $local_agents -gt 0 ]]; then
     if ! frontmatter "$f" | grep -Eq '^model:[[:space:]]*[^[:space:]]'; then
       fail "$a has no model: pin — it will inherit the session model"
     fi
-    if frontmatter "$f" | grep -Eq '^background:[[:space:]]*false[[:space:]]*$'; then
-      pass "$a declares background: false — its report comes back as the delegation's tool result"
-    else
-      fail "$a lacks background: false — delegations are backgrounded by default, so the caller reviews an empty diff and the invoking skill's model/effort pin drops at the completion notification"
+    if frontmatter "$f" | grep -Eq '^background:[[:space:]]*true'; then
+      fail "$a declares background: true — it stays in the background even with background tasks disabled, so the caller reviews an empty diff and the invoking skill's pin drops"
     fi
   done
+fi
+
+# Foreground delegation. Since 2.1.232 an interactive session backgrounds every
+# subagent and nothing in an agent file can ask for the foreground; the
+# documented switch is CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1, in settings env
+# or the shell. A backgrounded completion starts a new turn at the session
+# model/effort, which is where the skill's pin is lost.
+bg_off=""
+for f in "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.local.json" \
+         "$HOME/.claude/settings.json"; do
+  [[ -f "$f" && -r "$f" ]] || continue
+  v="$(jget "$f" 'd.get("env", {}).get("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS")')"
+  [[ "$v" == "1" ]] && bg_off="$f"
+done
+if [[ "${CLAUDE_CODE_DISABLE_BACKGROUND_TASKS:-}" == "1" ]]; then
+  pass "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 is set in this shell — delegations return in the foreground (shell-only; put it in settings env to make it standing)"
+elif [[ -n "$bg_off" ]]; then
+  pass "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 in $bg_off — delegations return in the foreground and the skill's model/effort pin holds"
+elif [[ "${CLAUDE_CODE_FORK_SUBAGENT:-}" == "0" ]]; then
+  warn "CLAUDE_CODE_FORK_SUBAGENT=0 — fork mode off, so Claude may foreground a delegation it needs; not a guarantee (templates/settings.snippet.json)"
+else
+  fail "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS is not set — every delegation is backgrounded, the skill's model/effort pin drops at the first completion notification (templates/settings.snippet.json)"
+fi
+if [[ -n "${CLAUDE_CODE_EFFORT_LEVEL:-}" ]]; then
+  warn "CLAUDE_CODE_EFFORT_LEVEL=$CLAUDE_CODE_EFFORT_LEVEL is set — it overrides /effort, settings and skill/agent frontmatter effort alike"
 fi
 
 if [[ $local_skills -gt 0 ]]; then

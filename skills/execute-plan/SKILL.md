@@ -24,9 +24,10 @@ model is not Sonnet, say so: the tiering assumes a cheap orchestrator, and the
 user may want to restart.
 
 This skill's `model: sonnet` / `effort: medium` pin applies to the current turn
-only, and it holds across the run only while every delegation stays in the
-foreground — a completion notification from a backgrounded agent starts a new
-turn on the *session* model at the *session* effort. So the session itself
+only. It survives the run only if every delegation returns in the foreground,
+which in an interactive session takes `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the
+project's settings `env` — otherwise the first completion notification starts a
+new turn on the *session* model at the *session* effort. So the session itself
 should have been set to Sonnet before `/execute-plan` was invoked: `/model
 sonnet` and `/effort medium`, or `claude --model sonnet --effort medium`.
 
@@ -70,13 +71,17 @@ the phase names tests, say so in the packet and let the implementer follow it.
 The packet is the only channel: the worker cannot see this conversation, so a
 convention you do not state is a convention it will not apply.
 
-Delegations run in the **foreground**, because every worker agent declares
-`background: false` in its own frontmatter: the delegation's tool result is the
-worker's report itself. (Verified headless on Claude Code 2.1.272; the
-interactive path is unverified.) If a delegation instead returns *"Async agent
-launched successfully"*, that agent file has lost the line — or it is the
-plugin-packaged copy, and whether plugin agents honour `background:` is
-unverified. Say so rather than continuing.
+Delegations must return in the **foreground**: the delegation's tool result is
+the worker's report itself. Since Claude Code 2.1.232 an interactive session
+runs every subagent in the background — the Agent tool's `run_in_background`
+parameter is gone, and no agent frontmatter can ask for the foreground. The one
+documented switch is `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, set in the
+project's `.claude/settings.json` `env` (`templates/settings.snippet.json`);
+`scripts/doctor.sh` checks for it. If a delegation returns *"Async agent
+launched successfully"* instead of a report, that switch is not set in this
+session. Say so once. If the session model is already Sonnet, continue — the
+cost is effort, not tier. Otherwise stop and let the user restart with it set;
+continuing means the run silently changes tier at the notification.
 
 Two things break when a delegation is backgrounded, and neither reads as a
 scheduling problem. A backgrounded implementer hands you control before it has

@@ -117,10 +117,10 @@ lost skill pin all the way down into the worker tier.
 
 The two **skills** are the weaker pin: skill frontmatter applies for the current
 turn only, and a backgrounded subagent's completion notification starts a new
-turn on the session's model and effort. The workers therefore declare
-`background: false` so each delegation returns inline, and the session should be
-set to Sonnet at `medium` before `/execute-plan` — hence the two slash commands
-in the sketch above. [Gotchas](gotchas.md) has the measurements.
+turn on the session's model and effort. `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`
+in the project settings keeps each delegation in the foreground, and the session
+should be set to Sonnet at `medium` before `/execute-plan` — hence the two slash
+commands in the sketch above. [Gotchas](gotchas.md) has the measurements.
 
 You can check all of it from a transcript rather than taking it on trust —
 `scripts/verify-models.py` in the repository prints which model each skill
@@ -140,8 +140,8 @@ shipping binary at version **2.1.220** — frontmatter schemas, settings keys, t
 advisor tool, and the plugin loading rules. The transcript tooling and the
 doctor's checks were re-verified on **2.1.238**, against the binary and against
 live transcripts. The skill-pin drop was measured on **2.1.239**, **2.1.251**
-and **2.1.259**; `background: false` as its fix was verified headless on
-**2.1.272** and is unverified in an interactive session. Where something could
+and **2.1.259**; the foreground switch that prevents it is taken from the
+docs and has not been measured here. Where something could
 not be verified, the page says so rather than guessing.
 
 Model aliases float: `model: opus` resolves to whatever "opus" currently means,

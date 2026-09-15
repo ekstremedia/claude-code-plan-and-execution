@@ -108,12 +108,19 @@ session, skill pinned `opus`, ran everything after the first
 `planning-researcher` notification on Fable at `high` — including writing the
 plan.
 
-Two defences, and use both:
+Three defences, and use all of them:
 
-- **Keep the delegations in the foreground.** An agent that declares
-  `background: false` in its frontmatter returns its report as the delegation's
-  tool result, so the turn never ends and the pin never lapses. See *Subagents
-  are backgrounded by default* below for what is verified about it.
+- **Keep the delegations in the foreground.** Set
+  `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's `.claude/settings.json`
+  `env`, so a delegation's report comes back as its tool result and the turn
+  never ends. See *Subagents run in the background since 2.1.232* below for why
+  nothing in an agent file can do this.
+- **Leave `CLAUDE_CODE_EFFORT_LEVEL` unset.** It takes precedence over
+  `/effort`, `--effort`, `modelSettings`, `effortLevel` *and* skill or subagent
+  frontmatter ([env vars](https://code.claude.com/docs/en/env-vars),
+  [model config](https://code.claude.com/docs/en/model-config)). Set to
+  `xhigh`, it silently overrides the orchestrator's `medium` and the
+  researcher's `medium` whether or not the pin holds.
 - **Set the session, not just the skill.** `/model sonnet` and `/effort medium`
   before `/execute-plan`, or `claude --model sonnet --effort medium`. `/clear`
   keeps the session's current model and effort, so clearing is not setting them.
@@ -121,8 +128,9 @@ Two defences, and use both:
   same safety net — see `templates/settings.snippet.json`.
 
 The one-line check: the delegation's tool result is the worker's report rather
-than *"Async agent launched successfully"*, and the `effort` field on assistant
-records stays at the skill's value for the whole run. `verify-models.py` prints
+than *"Async agent launched successfully"*, `verify-models.py` counts zero
+task-notifications, and the `effort` field on assistant records stays at the
+skill's value for the whole run. `verify-models.py` prints
 a WARNING naming the exact record where it stopped.
 
 ## `CLAUDE_CODE_SUBAGENT_MODEL` overrides every `model:` pin
@@ -204,7 +212,7 @@ phase — the implementer already knows what it did. Never for a reviewer: the
 value of a review is the fresh context, and a resumed reviewer is reviewing its
 own framing.
 
-## Subagents are backgrounded by default, and `run_in_background` is gone
+## Subagents run in the background since 2.1.232, and `run_in_background` is gone
 
 Both skills here are built on the opposite assumption: the planner needs the
 research before it can write the plan, and the orchestrator needs the code on
@@ -219,20 +227,33 @@ passed 5 times, and all 5 tool results came back *"Async agent launched
 successfully."* — the harness ignored it. The current tool schema, on 2.1.272,
 has no such parameter at all.
 
-The documented replacement is `background: false` in the **agent's** frontmatter
-([sub-agents docs](https://code.claude.com/docs/en/sub-agents.md)), or
-`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the environment to force every
-delegation into the foreground. All four agents here carry the frontmatter line;
-`scripts/doctor.sh` asserts it.
+The [sub-agents docs](https://code.claude.com/docs/en/sub-agents.md) say why.
+**Fork mode** is on by default in interactive sessions from 2.1.232, and with it
+on, Claude Code *"runs the subagent in the background, forks and non-fork
+subagents alike, and Claude can't ask for the foreground"* — the
+`run_in_background` parameter is removed from the tool. Every measured pin drop
+above is on a version past that line. The agent frontmatter field `background`
+only has a documented `true` meaning (keep this agent in the background even
+when Claude asks for the foreground); `background: false` is not a foreground
+request, and an earlier draft of this fix that relied on it was wrong.
 
-**Verified headless on 2.1.272**: an agent declaring `background: false`,
-delegated from `claude -p --model sonnet`, returned its report inline as the
-`Agent` tool result — no "Async agent launched", no task-notification record,
-same turn, two turns total. **Not verified interactively**: agent definitions
-load at session start, so the running session could not test its own change. A
-plugin-packaged agent is unverified too — plugin agents are known to drop
-`permissionMode`, `hooks` and `mcpServers`, and whether `background:` survives
-packaging has not been measured here.
+Two documented ways out, and only the first is deterministic:
+
+- `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` — *"runs the subagent in the
+  foreground, in every kind of session and whether or not fork mode is on"*. Set
+  it in the project's `.claude/settings.json` `env`
+  (`templates/settings.snippet.json`); `scripts/doctor.sh` asserts it. The cost
+  is that it also disables `run_in_background` on Bash and the Ctrl+B shortcut
+  in that project.
+- `CLAUDE_CODE_FORK_SUBAGENT=0` turns fork mode off, after which Claude runs a
+  subagent *"in the foreground when it needs the result before continuing"* —
+  Claude's judgment, not a guarantee.
+
+**Not measured here.** The switch is documented; an interactive run with it set
+had not been recorded when this was written. A headless `claude -p` run is not
+evidence either way: fork mode is off there by default, so delegations return
+in the foreground with or without any setting — which is exactly how the
+`background: false` draft looked verified when it was not.
 
 The symptoms of losing this do not look like a scheduling bug. They look like
 the agent losing its answer, and like a run that silently changed model.

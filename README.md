@@ -12,8 +12,8 @@ at — and a plan that lives only in a conversation dies with that conversation.
 
 Tested against Claude Code **2.1.220**; the transcript tooling and the doctor's
 checks re-verified on **2.1.238**. The model-pin drop described below was
-measured on **2.1.239**, **2.1.251** and **2.1.259**, and its fix verified
-headless on **2.1.272**. Command names and model aliases drift; the structure is
+measured on **2.1.239**, **2.1.251** and **2.1.259**; the foreground switch that
+prevents it is documented, and not yet measured here. Command names and model aliases drift; the structure is
 the durable part.
 
 ---
@@ -79,12 +79,16 @@ composing with it, and refuses to run inside it.
 # new session — set the session model and effort, not just the skill's:
 #   /model sonnet  and  /effort medium
 #   or start it as: claude --model sonnet --effort medium
+# and CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 in .claude/settings.json env
 /execute-plan plans/RefreshTokens.md
 ```
 
 The session settings matter because a skill's `model:` and `effort:` frontmatter
 applies for the current turn only: from the first subagent-completion
-notification onward, the run continues on whatever the session is set to. See
+notification onward, the run continues on whatever the session is set to. The
+env setting is what keeps delegations in the foreground so that notification
+never comes. `CLAUDE_CODE_EFFORT_LEVEL` must be unset: it overrides `/effort`,
+`--effort`, settings and frontmatter alike. See
 [Four things that break it](#four-things-that-break-it).
 
 Sonnet orchestrates: builds a phase packet, delegates to `implementer`, reads the
@@ -230,13 +234,14 @@ session model, at the session effort, with no user input in between. Measured in
 three `/execute-plan` runs: the `effort` field on assistant records flips from
 the skill's `medium` to the session's `xhigh` at the first notification
 (2.1.239, 2.1.251, 2.1.259), and on 2.1.259 `message.model` went
-`claude-sonnet-5` → `claude-opus-5` with it, at 17:28:44. The four worker agents
-therefore declare `background: false`, which returns each delegation's report as
-the tool result and keeps the turn alive — verified headless on 2.1.272, not yet
-verified in an interactive session. One-line check for the reader: the
-delegation's tool result is the report rather than "Async agent launched
-successfully", and `effort` stays at the skill's value across the run.
-`scripts/verify-models.py` prints the exact record where it stops.
+`claude-sonnet-5` → `claude-opus-5` with it, at 17:28:44. Since 2.1.232 an
+interactive session runs every subagent in the background, and neither the
+Agent tool nor agent frontmatter can ask for the foreground; the one documented
+switch is `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's settings
+`env`, which `scripts/doctor.sh` checks for. Documented, not yet measured here.
+One-line check for the reader: the delegation's tool result is the report rather
+than "Async agent launched successfully", `scripts/verify-models.py` reports
+zero task-notifications, and `effort` stays at the skill's value across the run.
 
 **`CLAUDE_CODE_SUBAGENT_MODEL`** takes precedence over every agent's `model:`
 frontmatter. Setting it collapses the whole tiering onto one model, silently.

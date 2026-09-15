@@ -24,9 +24,10 @@ to restart.
 Say which model the **session** is on as well, where you can tell: this skill's
 `model: opus` / `effort: high` pin applies to the current turn, and a research
 delegation that returns as a background notification starts a new turn on the
-session model at the session effort. Delegations here stay in the foreground
-for that reason (see Research), but if the session is on a cheap model, a
-dropped pin means the plan gets written by that model with nothing saying so.
+session model at the session effort. Delegations return in the foreground only
+when the session has `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` set (see
+Research); if the session is on a cheap model and that switch is missing, the
+plan gets written by that model with nothing saying so.
 
 Then check whether **plan mode is active**. Signs: a plan-mode system message, a
 harness-supplied plan file path (typically under `~/.claude/plans/`), a "Plan
@@ -81,14 +82,16 @@ alongside the plan you are writing. A request with more genuinely independent
 areas than that is more than one plan: say so and scope it down, rather than
 fanning out further.
 
-Dispatch independent delegations **in parallel, in a single message**. They run
-in the **foreground**, because `planning-researcher` declares `background:
-false` in its own frontmatter: the delegation's tool result is the researcher's
-report itself. (Verified headless on Claude Code 2.1.272; the interactive path
-is unverified.) If one instead returns *"Async agent launched successfully"*,
-that agent file has lost the line — or it is the plugin-packaged copy, and
-whether plugin agents honour `background:` is unverified. Say so rather than
-continuing.
+Dispatch independent delegations **in parallel, in a single message**. They
+must return in the **foreground** — the delegation's tool result is the
+researcher's report itself. Since Claude Code 2.1.232 an interactive session
+runs every subagent in the background, the Agent tool's `run_in_background`
+parameter is gone, and no agent frontmatter can ask for the foreground; the one
+documented switch is `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's
+`.claude/settings.json` `env`. If a delegation returns *"Async agent launched
+successfully"* instead of a report, that switch is not set. Say so once. If the
+session model is Opus, continue — only the effort pin is at stake. Otherwise
+stop and let the user restart with it set.
 
 The foreground matters twice over. You cannot write the plan before the
 evidence arrives, and a researcher whose report lands after you have given up

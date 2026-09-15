@@ -3,7 +3,6 @@ name: implementer
 description: Use this agent to implement a specific step or phase from a plan file — writing code, writing and updating tests, and running them. Use proactively for all implementation work when executing a plan.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
-background: false
 effort: high
 ---
 

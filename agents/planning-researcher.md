@@ -3,7 +3,6 @@ name: planning-researcher
 description: Use proactively during planning to inspect the codebase, locate relevant implementations and tests, verify suspected root causes, and return concise evidence with file and symbol references.
 tools: Read, Glob, Grep, Bash
 model: sonnet
-background: false
 effort: medium
 permissionMode: plan
 ---

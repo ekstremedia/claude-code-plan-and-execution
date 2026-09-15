@@ -269,10 +269,11 @@ it holds. Skill frontmatter applies for the current turn only, so `medium`
 survives a run only while every delegation stays in the foreground: a
 backgrounded worker's completion notification starts a new turn at the
 *session's* effort. Measured `medium`→`xhigh` at the first notification in three
-runs (2.1.239, 2.1.251, 2.1.259). Two defences, both in use here — the worker
-agents declare `background: false` so delegations return inline, and the session
-should be set to Sonnet at `medium` before `/execute-plan` is invoked
-(`modelSettings.claude-sonnet-5.effortLevel` in settings makes that standing).
+runs (2.1.239, 2.1.251, 2.1.259). Two defences, both in the settings snippet —
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project `env` keeps delegations
+in the foreground, and the session should be set to Sonnet at `medium` before
+`/execute-plan` is invoked (`modelSettings.claude-sonnet-5.effortLevel` makes
+that standing). Both are overridden by `CLAUDE_CODE_EFFORT_LEVEL` if it is set.
 See [Gotchas](gotchas.md).
 
 Agent `effort` is fixed per definition — there is no per-invocation knob. So

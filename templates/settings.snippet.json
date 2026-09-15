@@ -4,8 +4,10 @@
   "//plansDirectory": "Where built-in plan mode writes its plan files. Relative to the project root; must stay inside it. Without this, plans land in ~/.claude/plans/ and are not version-controlled. Set it: in plan mode the harness owns the plan path outright, so this is what keeps that file inside the repository too. Note /make-plan refuses to run while plan mode is active — the two are alternatives, not layers.",
   "plansDirectory": "plans",
 
-  "//env": "Do NOT set CLAUDE_CODE_SUBAGENT_MODEL. It takes precedence over every agent's model: frontmatter, which would silently collapse the whole tiering onto one model.",
-  "env": {},
+  "//env": "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 keeps every subagent delegation in the foreground, so its report returns as the tool result inside the same turn and the invoking skill's model:/effort: pin survives. Since Claude Code 2.1.232 an interactive session backgrounds every subagent and nothing in an agent file can ask for the foreground; this is the documented switch. It also disables run_in_background on Bash and Ctrl+B in this project. Do NOT set CLAUDE_CODE_SUBAGENT_MODEL (collapses the tiering onto one model) or CLAUDE_CODE_EFFORT_LEVEL (overrides /effort, settings and frontmatter effort alike).",
+  "env": {
+    "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"
+  },
 
   "//modelSettings": "Optional. The safety net for the orchestrator tier if the skill pin drops: a skill's model:/effort: frontmatter applies for the current turn only, so /execute-plan falls back to the SESSION effort the moment a delegation returns as a background completion notification. This pins that fallback to medium for Sonnet sessions. It is per-model, so an Opus planning session is untouched. It does not reach agent frontmatter: implementer still overrides to effort: high in its own file regardless.",
   "modelSettings": {

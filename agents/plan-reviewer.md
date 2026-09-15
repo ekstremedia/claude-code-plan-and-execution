@@ -3,7 +3,6 @@ name: plan-reviewer
 description: Use this agent after high-risk implementation phases and before final completion, to review the actual changes against the saved plan and its acceptance criteria.
 tools: Read, Glob, Grep, Bash
 model: opus
-background: false
 effort: high
 permissionMode: plan
 ---
