@@ -13,8 +13,9 @@ The checkable ones are mechanized:
 [`scripts/doctor.sh <project>`](https://github.com/ekstremedia/claude-code-plan-and-execution/blob/main/scripts/doctor.sh)
 asserts them against a live install — the env override, the dual distribution
 paths, a dropped `permissionMode`, inert `maxTurns` keys, unadapted worker
-agents, wrapper refusal (`--probe`), a stale plugin snapshot. Prose is for
-understanding a failure; run the doctor to find one.
+agents, a worker allowlist that hides MCP servers, wrapper refusal (`--probe`),
+a stale plugin snapshot. Prose is for understanding a failure; run the doctor to
+find one.
 
 ## Do not run `/make-plan` from plan mode
 
@@ -151,6 +152,29 @@ agents. Use `.claude/agents/` for this level of control."*
 `planning-researcher` and `plan-reviewer` use `permissionMode: plan` to be
 *unable* to write. Installed via the plugin they are only *instructed* not to.
 If that distinction matters, use `install.sh`.
+
+## A `tools:` allowlist hides every MCP server
+
+An agent's `tools:` is exact: it gets what the list names and nothing else. The
+worker agents shipped up to 0.2.0 with `Read, Write, Edit, Bash, Glob, Grep`,
+which names no `mcp__` tool, so the implementer could reach none of the MCP
+servers the session had connected: framework docs, the project's database tools,
+the issue tracker. Adding `ToolSearch` does not fix it, because `ToolSearch` only
+loads deferred tools that the allowlist already admits. Measured: an implementer
+whose list held `ToolSearch` and named tools from three servers loaded exactly
+those, and `select:mcp__nuxt-ui__search-components` came back empty while the
+main session used that tool without trouble.
+
+Since 0.2.1 the two worker agents declare no `tools:` and inherit the session's
+full tool set, MCP servers included. The read-only agents keep their allowlists:
+on the plugin path, where `permissionMode` is dropped, the allowlist is the only
+thing that stops them from writing.
+
+`--update` leaves adapted worker files alone, so an older install keeps the old
+line. Delete it, and the doctor stops warning. If you want an allowlist anyway,
+grant servers whole with `mcp__<server>__*` so tools a server adds later come
+along. A running session can keep the agent definition it loaded at startup, so
+check in a fresh session.
 
 ## Do not run both distribution paths at once
 

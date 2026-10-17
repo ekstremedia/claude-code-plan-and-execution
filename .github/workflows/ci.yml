@@ -54,7 +54,13 @@ jobs:
 
           # A fresh install plus the snippet must be doctor-clean: warnings
           # allowed (unadapted markers, no wrappers yet), failures not.
-          scripts/doctor.sh "$proj"
+          out="$(scripts/doctor.sh "$proj")"
+          echo "$out"
+
+          # The workers ship without a tools: allowlist, so they reach the
+          # session's MCP servers.
+          grep -q 'PASS  implementer inherits' <<<"$out"
+          grep -q 'PASS  quick-implementer inherits' <<<"$out"
 
           # Uninstall removes only what install placed: a user file dropped
           # into the templates directory survives, ours go.

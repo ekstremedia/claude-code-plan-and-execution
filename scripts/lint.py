@@ -2,7 +2,8 @@
 """Repo lint — the repository's own contracts as checks, so drift fails CI.
 
 - every agent and skill carries the frontmatter its role requires
-- the two read-only agents keep `permissionMode: plan`
+- the two read-only agents keep `permissionMode: plan` and a `tools:` allowlist
+- the two worker agents declare no `tools:` — an allowlist hides every MCP server
 - nothing declares keys the harness accepts and ignores (`maxTurns` — measured,
   see docs/gotchas.md)
 - the plugin manifests and the settings snippet parse as JSON
@@ -19,6 +20,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 READONLY_AGENTS = {"planning-researcher", "plan-reviewer"}
+WORKER_AGENTS = {"implementer", "quick-implementer"}
 INERT_KEYS = {"maxTurns"}
 
 problems = []
@@ -58,9 +60,13 @@ def check_agent(path):
     if fm is None:
         problem(path, "missing or unterminated frontmatter")
         return
-    for key in ("name", "description", "tools", "model"):
+    for key in ("name", "description", "model"):
         if not fm.get(key):
             problem(path, f"frontmatter lacks {key}:")
+    if name in READONLY_AGENTS and not fm.get("tools"):
+        problem(path, "read-only agent without a tools: allowlist")
+    if name in WORKER_AGENTS and "tools" in fm:
+        problem(path, "worker agent declares tools: — it would lose every MCP server; inherit instead")
     if fm.get("name") and fm["name"] != name:
         problem(path, f"name: {fm['name']!r} does not match filename {name!r}")
     if name in READONLY_AGENTS and fm.get("permissionMode") != "plan":

@@ -38,6 +38,12 @@ The corollary is that "report concisely" in the worker prompts is a live
 constraint, not boilerplate. If workers write long reports the isolation buys
 nothing.
 
+The workers carry no `tools:` allowlist. They do the work the main session would
+otherwise do, so they need the tools it has, and the MCP servers a project
+connects (docs, database, tracker) are named per project and cannot be listed
+here. Restriction lives in the read-only agents, which keep theirs. See
+[Gotchas](gotchas.md#a-tools-allowlist-hides-every-mcp-server).
+
 ## Why the plan is a file
 
 A plan held in a conversation dies with that conversation, and survives

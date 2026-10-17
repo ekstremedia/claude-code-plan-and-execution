@@ -171,6 +171,17 @@ if [[ $local_agents -gt 0 ]]; then
     else
       pass "$a is adapted (PROJECT marker replaced)"
     fi
+    # An allowlist without mcp__ entries hides every MCP server (and, without
+    # ToolSearch, every deferred tool). Installs from before 0.2.1 carry one,
+    # and --update keeps adapted worker files, so it survives upgrades.
+    tools_line="$(frontmatter "$f" | grep -E '^tools:' || true)"
+    if [[ -z "$tools_line" ]]; then
+      pass "$a inherits the session's tools, MCP servers included"
+    elif [[ "$tools_line" == *mcp__* ]]; then
+      pass "$a allowlists MCP tools explicitly"
+    else
+      warn "$a has a tools: allowlist with no mcp__ entries — it cannot reach any MCP server; delete the tools: line"
+    fi
   done
 
   for a in $ALL_AGENTS; do
