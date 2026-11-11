@@ -37,6 +37,7 @@ Standard library only. Set NO_COLOR to drop the dimming.
 import json
 import os
 import re
+import stat
 import sys
 import tempfile
 import time
@@ -48,7 +49,7 @@ EDIT_TOOLS = {"Edit": "edit", "MultiEdit": "edit", "NotebookEdit": "edit", "Writ
 # (templates/bin/test-example.sh). Adapt if this project's are named otherwise.
 CHECK_RE = re.compile(r"(?:^|[\s;&|(/])bin/((?:test|check)-[A-Za-z0-9_.-]+)")
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 CACHE_MAX_AGE = 24 * 3600
 SEP = " · "
 
@@ -64,6 +65,7 @@ def new_state():
         "seen": [],        # tool_use ids counted — a streamed message repeats its blocks
         "tools": 0,
         "files": [],       # every file changed, in first-touched order
+        "edits": {},       # tool_use id -> path of an edit awaiting its result
         "activity": "",    # what the worker did last
         "checks": {},      # tool_use id -> wrapper name, awaiting a result
         "check": "",       # the last finished check, e.g. "test-php ok"
@@ -143,14 +145,22 @@ def feed(state, rec, cwd):
             inp = block.get("input") if isinstance(block.get("input"), dict) else {}
             state["activity"] = describe(name, inp, cwd)
             if name in EDIT_TOOLS:
-                note_file(state, inp.get("file_path") or inp.get("notebook_path"), cwd)
+                # Counted when its result comes back clean: an Edit can fail —
+                # text not found, file not read first — and change nothing.
+                path = inp.get("file_path") or inp.get("notebook_path")
+                if path:
+                    state["edits"][block_id] = path
             elif name == "Bash":
                 found = CHECK_RE.findall(inp.get("command") or "")
                 if found:
                     state["checks"][block_id] = found[-1]
 
         elif block.get("type") == "tool_result":
-            wrapper = state["checks"].pop(block.get("tool_use_id") or "", None)
+            result_id = block.get("tool_use_id") or ""
+            edited = state["edits"].pop(result_id, None)
+            if edited and not block.get("is_error"):
+                note_file(state, edited, cwd)
+            wrapper = state["checks"].pop(result_id, None)
             if wrapper:
                 body = block.get("content")
                 if isinstance(body, list):
@@ -210,15 +220,38 @@ def advance(state, transcript, cwd):
 
 
 def cache_dir():
-    """A private per-user directory for the per-worker state files."""
-    uid = os.getuid() if hasattr(os, "getuid") else "user"
-    path = os.path.join(tempfile.gettempdir(), f"plan-and-execute-statusline-{uid}")
-    os.makedirs(path, mode=0o700, exist_ok=True)
+    """A private per-user directory for the state files, or None.
+
+    The state holds what the worker ran, so it must not land anywhere another
+    local user can read. The directory name is predictable and the temp
+    directory may be shared; someone else can have created it first, and
+    `makedirs` leaves the owner and mode of an existing directory as they are.
+    So the directory is used only if it is a real directory, owned by this
+    user, closed to everyone else. Otherwise there is no cache this tick and
+    each transcript is parsed from the start — slower, never exposed.
+    """
+    uid = os.getuid() if hasattr(os, "getuid") else None
+    name = f"plan-and-execute-statusline-{uid if uid is not None else 'user'}"
+    path = os.path.join(tempfile.gettempdir(), name)
+    try:
+        os.makedirs(path, mode=0o700, exist_ok=True)
+        info = os.lstat(path)
+        if not stat.S_ISDIR(info.st_mode):
+            return None  # a symlink or a file planted under this name
+        if uid is not None:
+            if info.st_uid != uid:
+                return None
+            if info.st_mode & 0o077:
+                os.chmod(path, 0o700)
+    except OSError:
+        return None
     return path
 
 
 def load_state(path):
     """The cached state for one worker, or a fresh one."""
+    if not path:
+        return new_state()
     try:
         with open(path, encoding="utf-8") as fh:
             state = json.load(fh)
@@ -231,9 +264,14 @@ def load_state(path):
 
 def save_state(path, state):
     """Write the state atomically: ticks can overlap and be cancelled."""
+    if not path:
+        return
     tmp = f"{path}.{os.getpid()}.tmp"
     try:
-        with open(tmp, "w", encoding="utf-8") as fh:
+        # Created owner-only whatever the umask says; O_EXCL refuses a path
+        # that already exists, a planted symlink included.
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(state, fh)
         os.replace(tmp, path)
     except OSError:
@@ -245,6 +283,8 @@ def save_state(path, state):
 
 def prune(directory):
     """Drop state files of workers long finished."""
+    if not directory:
+        return
     cutoff = time.time() - CACHE_MAX_AGE
     try:
         for entry in os.scandir(directory):
@@ -329,19 +369,26 @@ def row(task, state, columns, color):
     what = squeeze(what, 8)
     if width() > columns:
         what = ""
-    if width() > columns:
-        check = "" if not check.endswith(" FAIL") else check
+    failed = check.endswith(" FAIL")
+    if width() > columns and not failed:
+        check = ""
     activity = squeeze(activity, 12, is_path)
     if width() > columns:
         files = ""
     if width() > columns:
         activity = ""
-    head = squeeze(head, 1)
+    # A failed check outlasts everything but the name: first without its
+    # wrapper's name, then not at all.
+    if width() > columns and failed:
+        check = "FAIL"
+    if width() > columns:
+        check = ""
+    head = clip(head, max(columns, 0))
 
     dim, bold, reset = ("\x1b[2m", "\x1b[1m", "\x1b[0m") if color else ("", "", "")
     parts = [f"{bold}{head}{reset}", what, activity, files]
     if check:
-        parts.append(f"{bold}{check}{reset}" if check.endswith(" FAIL") else check)
+        parts.append(f"{bold}{check}{reset}" if failed else check)
     parts.extend(f"{dim}{m}{reset}" for m in (tokens, elapsed) if m)
     return f"{dim}{SEP}{reset}".join(p for p in parts if p)
 
@@ -376,7 +423,7 @@ def main():
         worker = os.path.join(session_dir, "subagents", f"agent-{task_id}.jsonl")
         if not os.path.isfile(worker):
             continue
-        cache = os.path.join(directory, f"{session}-{task_id}.json")
+        cache = os.path.join(directory, f"{session}-{task_id}.json") if directory else None
         try:
             state = load_state(cache)
             before = state["offset"]
