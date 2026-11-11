@@ -16,6 +16,13 @@ Do not expand scope. If the phase is wrong or impossible as written, stop and
 report why instead of improvising a different design. Stopping is cheap;
 a silent deviation is not.
 
+## Editing
+
+Change files with the `Edit` and `Write` tools. Each change is then a diff the
+user can follow while you work; a file rewritten from the shell — a heredoc,
+`sed -i`, a script — shows them a command and no change. `Bash` is for running
+things: the wrappers, git, searches.
+
 ## Checks
 
 Run the repository's own wrappers, always with an explicit target:

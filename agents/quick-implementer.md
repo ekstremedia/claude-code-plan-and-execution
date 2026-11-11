@@ -24,6 +24,11 @@ STOP and report that the task belongs to the `implementer` agent if it:
 Refusing is the correct outcome, not a failure. Do not improvise a smaller
 version of a task you should not be doing.
 
+## Editing
+
+Change files with the `Edit` and `Write` tools, so each change shows the user a
+diff. `Bash` is for running the checks.
+
 ## Checks
 
 Use the repository's wrappers with an explicit target — `bin/test-<lang> <path>`,

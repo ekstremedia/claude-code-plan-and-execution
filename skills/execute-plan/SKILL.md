@@ -71,15 +71,18 @@ the phase names tests, say so in the packet and let the implementer follow it.
 The packet is the only channel: the worker cannot see this conversation, so a
 convention you do not state is a convention it will not apply.
 
-Delegations must return in the **foreground**: the delegation's tool result is
-the worker's report itself. Since Claude Code 2.1.232 an interactive session
-runs every subagent in the background — the Agent tool's `run_in_background`
-parameter is gone, and no agent frontmatter can ask for the foreground. The one
-documented switch is `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, set in the
-project's `.claude/settings.json` `env` (`templates/settings.snippet.json`);
+Delegations must return in the **foreground**: the Agent call blocks until the
+worker has finished, and the report is in your hands when it returns — as the
+tool result itself, or as a hand-back message the tool result points you to
+(*"This agent's report was delivered to you as a message…"*). Since Claude Code
+2.1.232 an interactive session runs every subagent in the background — the
+Agent tool's `run_in_background` parameter is gone, and no agent frontmatter
+can ask for the foreground. The one documented switch is
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, set in the project's
+`.claude/settings.json` `env` (`templates/settings.snippet.json`);
 `scripts/doctor.sh` checks for it. If a delegation returns *"Async agent
-launched successfully"* instead of a report, that switch is not set in this
-session. Say so once. If the session model is already Sonnet, continue — the
+launched successfully"* instead, the worker is still running and that switch is
+not set in this session. Say so once. If the session model is already Sonnet, continue — the
 cost is effort, not tier. Otherwise stop and let the user restart with it set;
 continuing means the run silently changes tier at the notification.
 
@@ -104,6 +107,19 @@ implementer at a time, waited for.
 - Check scope: nothing missing, nothing extra.
 - Check the test summary is plausible, and that any new test asserts the
   behaviour the phase names rather than merely that the code runs.
+
+**Then show the user what the phase changed**, before findings go back and
+before the next phase starts. A worker's edits stay inside the worker, so this
+message is where the user sees them. From what you just read:
+
+- the phase and the worker that ran it
+- every file the phase changed or created, each with its line from
+  `git diff --stat HEAD -- <phase files>`; new files marked as new
+- each check the worker ran, with its result
+- your verdict: accepted, or the findings you are about to send back
+
+Write the stat lines into the message itself — the user reads your messages,
+not your tool output. Done when every file the phase touched is on the list.
 
 **5. Findings go back, not into your own hands.** Send concrete findings as a
 follow-up delegation. Once you have delegated, commit to the delegation: read
