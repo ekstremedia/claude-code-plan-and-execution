@@ -12,12 +12,14 @@
 # Copies:
 #   agents/*.md          -> <project>/.claude/agents/
 #   skills/*/SKILL.md    -> <project>/.claude/skills/<name>/SKILL.md
+#   scripts/subagent-statusline.py
+#                        -> <project>/.claude/plan-and-execute/
 #
 # --update is the routine "this repo changed, pull it in" path, and the one to
-# reach for after a fix lands here. It overwrites the skills and the two
-# read-only agents, which hold nothing project-specific, and never touches
-# implementer or quick-implementer — those name the project's own test and lint
-# commands and its own danger zones, so they are meant to diverge.
+# reach for after a fix lands here. It overwrites the skills, the status-line
+# script and the two read-only agents, which hold nothing project-specific, and
+# never touches implementer or quick-implementer — those name the project's own
+# test and lint commands and its own danger zones, so they are meant to diverge.
 #
 # --uninstall removes exactly the files install places. Worker agents that were
 # adapted to the project survive unless --force is added; plans/, the CLAUDE.md
@@ -40,6 +42,10 @@ UNINSTALL=0
 # these alone; they are supposed to differ per project.
 PROJECT_LOCAL_AGENTS="implementer quick-implementer"
 
+# Files a settings entry points at, placed under .claude/plan-and-execute/.
+# Nothing project-specific in them, so --update overwrites them.
+SUPPORT_FILES="scripts/subagent-statusline.py"
+
 for arg in "$@"; do
   case "$arg" in
     --force)       FORCE=1 ;;
@@ -48,7 +54,7 @@ for arg in "$@"; do
     --skills-only) SKILLS_ONLY=1 ;;
     --uninstall)   UNINSTALL=1 ;;
     -h|--help)
-      sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     -*)
       echo "unknown option: $arg" >&2; exit 2 ;;
@@ -146,6 +152,16 @@ if [[ $UNINSTALL -eq 1 ]]; then
     rmdir "$TARGET/.claude/skills/$name" 2>/dev/null || true
   done
 
+  for rel in $SUPPORT_FILES; do
+    dest="$TARGET/.claude/plan-and-execute/$(basename "$rel")"
+    if [[ -e "$dest" ]]; then
+      rm "$dest"
+      echo "  remove   ${dest#"$TARGET"/}"
+      removed=$((removed + 1))
+    fi
+  done
+  rmdir "$TARGET/.claude/plan-and-execute" 2>/dev/null || true
+
   tpl_dir="$TARGET/.claude/plan-and-execute-templates"
   if [[ -d "$tpl_dir" ]]; then
     # Remove only the paths install places; a file the user dropped or created
@@ -181,7 +197,8 @@ if [[ $UNINSTALL -eq 1 ]]; then
     echo "$summary."
     echo
     echo "Left in place, on purpose: plans/, the CLAUDE.md routing snippet, and"
-    echo "any plansDirectory or permissions entries in .claude/settings.json."
+    echo "everything in .claude/settings.json. If that file has a subagentStatusLine"
+    echo "entry pointing at .claude/plan-and-execute/, remove it by hand."
   fi
   exit 0
 fi
@@ -217,6 +234,10 @@ for d in "$SRC"/skills/*/; do
   place "$d/SKILL.md" "$TARGET/.claude/skills/$name/SKILL.md"
 done
 
+for rel in $SUPPORT_FILES; do
+  place "$SRC/$rel" "$TARGET/.claude/plan-and-execute/$(basename "$rel")"
+done
+
 if [[ $TEMPLATES -eq 1 ]]; then
   while IFS= read -r f; do
     rel="${f#"$SRC"/templates/}"
@@ -248,6 +269,12 @@ EOF
     [[ -e "$dest" ]] || continue
     printf '  diff %q %q\n' "$SRC/agents/$name.md" "$dest"
   done
+  cat <<EOF
+
+Then check the wiring — Claude Code changes under this workflow between
+versions, and the doctor's checks change with it:
+EOF
+  printf '  %q %q\n' "$SRC/scripts/doctor.sh" "$TARGET"
   exit 0
 fi
 
@@ -259,7 +286,20 @@ Next:
      "<!-- PROJECT: ... -->" marker naming what to replace — the test and check
      wrapper commands, and the danger zones quick-implementer must refuse.
 
-  2. Add the routing line to $TARGET/CLAUDE.md:
+  2. Merge this into $TARGET/.claude/settings.json. install.sh never edits that
+     file. The env entry is the one this workflow cannot do without: it keeps
+     each delegation in the foreground, which is what makes the skills'
+     model and effort pins hold for the whole run. The second entry is
+     optional and makes each worker's row under the prompt show what the
+     worker is doing. templates/settings.snippet.json has both, annotated.
+
+       "env": { "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1" },
+       "subagentStatusLine": {
+         "type": "command",
+         "command": "python3 \"\$CLAUDE_PROJECT_DIR/.claude/plan-and-execute/subagent-statusline.py\""
+       }
+
+  3. Add the routing line to $TARGET/CLAUDE.md:
 
        ## Saved plans
 
@@ -267,12 +307,15 @@ Next:
        invoked \`/execute-plan <plan-file>\` skill. The orchestration procedure
        lives in that skill, not here.
 
-  3. Do not set CLAUDE_CODE_SUBAGENT_MODEL. It overrides every agent's model
-     pin and collapses the tiering onto a single model.
+  4. Check the wiring. Every FAIL is a way this setup breaks silently:
 
-  4. Run it:
+EOF
+printf '       %q %q\n' "$SRC/scripts/doctor.sh" "$TARGET"
+cat <<EOF
+
+  5. Run it:
 
        /make-plan MyPlan <the problem>
-       # then, in a fresh session:
+       # then, in a fresh session set to /model sonnet and /effort medium:
        /execute-plan plans/MyPlan.md
 EOF

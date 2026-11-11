@@ -83,13 +83,16 @@ areas than that is more than one plan: say so and scope it down, rather than
 fanning out further.
 
 Dispatch independent delegations **in parallel, in a single message**. They
-must return in the **foreground** — the delegation's tool result is the
-researcher's report itself. Since Claude Code 2.1.232 an interactive session
-runs every subagent in the background, the Agent tool's `run_in_background`
-parameter is gone, and no agent frontmatter can ask for the foreground; the one
-documented switch is `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's
+must return in the **foreground** — the Agent call blocks until the researcher
+has finished, and its report is in your hands when it returns: as the tool
+result itself, or as a hand-back message the tool result points you to. Since
+Claude Code 2.1.232 an interactive session runs every subagent in the
+background, the Agent tool's `run_in_background` parameter is gone, and no
+agent frontmatter can ask for the foreground; the one documented switch is
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's
 `.claude/settings.json` `env`. If a delegation returns *"Async agent launched
-successfully"* instead of a report, that switch is not set. Say so once. If the
+successfully"* instead, the researcher is still running and that switch is not
+set. Say so once. If the
 session model is Opus, continue — only the effort pin is at stake. Otherwise
 stop and let the user restart with it set.
 
