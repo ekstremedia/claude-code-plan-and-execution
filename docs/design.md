@@ -61,8 +61,8 @@ Claude Code's own plan mode also persists to disk now. The `plansDirectory`
 setting — *"Custom directory for plan files, relative to project root. If not
 set, defaults to `~/.claude/plans/`"* — points it at the repository. Set it to
 `plans` and Shift+Tab plan mode writes to the same place `/make-plan` does.
-`/make-plan` still earns its keep by controlling the filename, capping research
-delegation, and filling the contract.
+`/make-plan` still earns its keep by controlling the filename, scoping research
+delegation to one per independent area, and filling the contract.
 
 They are alternatives, though, not layers. Plan mode injects its own workflow,
 and that injection outranks a skill body: research gets forced onto `Explore`,
@@ -161,6 +161,29 @@ An allowlist would be the stronger-looking option and is the wrong one here:
 omitting `ToolSearch` makes the deferred `SendMessage` unloadable, which silently
 breaks resuming the same implementer inside a phase.
 
+## What the user sees of a worker
+
+Isolation cuts both ways. The verbose middle of a phase stays out of the
+orchestrator's context, and by the same mechanism out of the user's view: the
+main chat shows one row per running worker, and no setting streams a worker's
+tool calls into it. A phase can run for forty minutes behind a name and a
+token count.
+
+Two things put the work back in view without giving up the isolation. The
+orchestrator, having read the phase's diff, lists what changed — each file with
+its `git diff --stat` line, each check and its result, its verdict — so the
+change set reaches the chat once per phase, from the tier that has just
+verified it rather than from the worker's own account. And
+`scripts/subagent-statusline.py`, wired in as `subagentStatusLine`, rewrites
+each worker's row from the worker's transcript every few seconds: current
+action, files changed, last check.
+
+Both lean on the workers changing files with `Edit` and `Write`, which is why
+the worker agents say so. Left alone they mostly do not — measured, two `Edit`
+calls in fourteen implementer runs, the rest heredocs and scripts through
+`Bash`. A shell rewrite reaches the working tree just the same, so review is
+unaffected; what it loses is the diff a person can read as it happens.
+
 ## Delegate, then commit to the delegation
 
 An orchestrator that re-derives what a subagent already reported pays for the
@@ -193,11 +216,10 @@ plan file at all.
 
 ## Stopping a stuck implementer
 
-The tempting control is `maxTurns`, and it is the wrong one twice over. Even if
-it worked it would be wrong at small values: a turn is every agentic step — read
-the packet, grep, read the service, read the test, edit, run, read the failure,
-fix — so a low cap truncates correct work mid-phase and leaves half-written code
-behind. And it does not work; see below.
+The tempting control is `maxTurns`, and at small values it is the wrong one: a
+turn is every agentic step — read the packet, grep, read the service, read the
+test, edit, run, read the failure, fix — so a low cap truncates correct work
+mid-phase and leaves half-written code behind.
 
 The failure actually worth stopping is *edits that gain no information*. So the
 implementer is told: if two materially different repair attempts produce the same
@@ -207,21 +229,30 @@ the most likely next investigation. Three red tests in a row is often just a
 correct sequence — the reproduction test failing as designed, then an edge case
 surfacing, then a stale fixture.
 
-Do not reach for `maxTurns` as the backstop either. Measured on a subagent that
-declared `maxTurns: 15`: it ran 65 turns. The key is accepted and ignored, so
-the instruction above is the whole mechanism — there is no hard limit behind it.
+`maxTurns` as a backstop behind that instruction depends on the version. It
+was inert when this was first written — a subagent declaring `maxTurns: 15` ran
+65 turns — and it is enforced on 2.1.322, where a `maxTurns: 3` agent stopped
+after three and came back marked as stopped at its limit, resumable
+([Gotchas](gotchas.md)). The worker agents ship without one: the instruction
+above stops the failure that matters, and a number that suits one project's
+phases truncates another's. If you add a cap to an agent that edits, set it
+well above the longest correct phase you have measured — the implementer runs
+behind this page ranged from 31 to 207 assistant records — and check a
+transcript to see that it fired where you meant it to.
 
 ## Why the read-only agents carry no turn limit
 
 `planning-researcher` and `plan-reviewer` had `maxTurns: 15` and it was removed.
 The reasoning above applies to them with more force, not less.
 
-The first reason is that it was not doing anything. A researcher delegated five
-bugs spanning two repositories was reported back to the planner as
-`Done · 21 tool uses · 49.8k tokens · 1m 16s` — and its subagent transcript
+The first reason, at the time, was that it was not doing anything. A researcher
+delegated five bugs spanning two repositories was reported back to the planner
+as `Done · 21 tool uses · 49.8k tokens · 1m 16s` — and its subagent transcript
 shows it was at **turn 33 of an eventual 65** when that happened. A cap of 15
 did not stop it at 15, or at all. Inert config is worse than no config: it reads
-like a control, so you stop looking for the real one.
+like a control, so you stop looking for the real one. The cap is enforced now
+(measured on 2.1.322), which removes that reason and sharpens the next one: a
+cap that does fire stops exactly the kind of agent described below.
 
 What the planner received as the agent's "final answer" was its interleaved
 narration — *"Found `AppSetting`, `EnforceAppSettings` middleware… let's dig
@@ -278,9 +309,12 @@ backgrounded worker's completion notification starts a new turn at the
 runs (2.1.239, 2.1.251, 2.1.259). Two defences, both in the settings snippet —
 `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project `env` keeps delegations
 in the foreground, and the session should be set to Sonnet at `medium` before
-`/execute-plan` is invoked (`modelSettings.claude-sonnet-5.effortLevel` makes
-that standing). Both are overridden by `CLAUDE_CODE_EFFORT_LEVEL` if it is set.
-See [Gotchas](gotchas.md).
+`/execute-plan` is invoked (`modelSettings.claude-sonnet-5-5.effortLevel` makes
+that standing — the key is the canonical name of whatever `sonnet` resolves to,
+so it needs revisiting when the alias moves). Both are overridden by
+`CLAUDE_CODE_EFFORT_LEVEL` if it is set. The foreground half is measured: two
+runs on 2.1.322 held `medium` across every main-thread record. See
+[Gotchas](gotchas.md).
 
 Agent `effort` is fixed per definition — there is no per-invocation knob. So
 "bump the final review to `xhigh`" is not something the orchestrator can do; it

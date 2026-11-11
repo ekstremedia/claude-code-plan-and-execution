@@ -74,6 +74,25 @@ frontmatter() {
   awk '/^---[[:space:]]*$/ { n++; next } n == 1 { print } n >= 2 { exit }' "$1"
 }
 
+# The installed Claude Code version, empty if `claude` is not on PATH. Several
+# checks below depend on it: behaviour this workflow leans on changed between
+# versions.
+CC_VERSION=""
+if command -v claude >/dev/null 2>&1; then
+  CC_VERSION="$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+fi
+
+# version_lt <a> <b> — true if dotted version a sorts before b.
+version_lt() {
+  [[ "$1" != "$2" ]] && [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" == "$1" ]]
+}
+
+# Managed (policy) settings live outside the home directory, per platform.
+case "$(uname -s 2>/dev/null)" in
+  Darwin) MANAGED="/Library/Application Support/ClaudeCode/managed-settings.json" ;;
+  *)      MANAGED="/etc/claude-code/managed-settings.json" ;;
+esac
+
 READONLY_AGENTS="planning-researcher plan-reviewer"
 WORKER_AGENTS="implementer quick-implementer"
 ALL_AGENTS="$READONLY_AGENTS $WORKER_AGENTS"
@@ -83,27 +102,41 @@ echo "doctor: $TARGET"
 echo "        (source repo: $SRC)"
 echo
 
-# ── 1. CLAUDE_CODE_SUBAGENT_MODEL ─────────────────────────────────────────────
-# Takes precedence over every agent's model: frontmatter; setting it collapses
-# the tiering onto one model, silently.
+# ── 1. Subagent model overrides ──────────────────────────────────────────────
+# Claude Code resolves a subagent's model in this order: the delegation's own
+# `model` argument, the agent's `model:` frontmatter, CLAUDE_CODE_SUBAGENT_MODEL,
+# the session model. So that variable is only a default for unpinned agents —
+# since 2.1.251. Before that it came first and overrode every pin. What
+# collapses the tiering now is CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 (2.1.257+):
+# with it on, every agent's `model:` is ignored.
 
-if [[ -n "${CLAUDE_CODE_SUBAGENT_MODEL:-}" ]]; then
-  fail "CLAUDE_CODE_SUBAGENT_MODEL is set in the environment (=$CLAUDE_CODE_SUBAGENT_MODEL) — overrides every model pin"
-else
-  pass "CLAUDE_CODE_SUBAGENT_MODEL is not set in the environment"
-fi
+force_at=""
+model_at=""
+[[ "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" == "1" ]] && force_at="the environment"
+[[ -n "${CLAUDE_CODE_SUBAGENT_MODEL:-}" ]] && model_at="the environment (=$CLAUDE_CODE_SUBAGENT_MODEL)"
 
-MANAGED="/etc/claude-code/managed-settings.json"
 for f in "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.local.json" \
          "$HOME/.claude/settings.json" "$MANAGED"; do
   [[ -f "$f" && -r "$f" ]] || continue
   v="$(jget "$f" 'd.get("env", {}).get("CLAUDE_CODE_SUBAGENT_MODEL")')"
   if [[ "$v" == "__ERR__" ]]; then
     warn "$f is not valid JSON — could not inspect it"
-  elif [[ -n "$v" ]]; then
-    fail "CLAUDE_CODE_SUBAGENT_MODEL is set in $f (=$v)"
+    continue
   fi
+  [[ -n "$v" ]] && model_at="$f (=$v)"
+  v="$(jget "$f" 'str(d.get("env", {}).get("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "")) == "1"')"
+  [[ -n "$v" && "$v" != "__ERR__" ]] && force_at="$f"
 done
+
+if [[ -n "$force_at" ]]; then
+  fail "CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 is set in $force_at — every agent's model: pin is ignored and the whole tiering runs on one model"
+elif [[ -n "$model_at" && -n "$CC_VERSION" ]] && version_lt "$CC_VERSION" "2.1.251"; then
+  fail "CLAUDE_CODE_SUBAGENT_MODEL is set in $model_at — on Claude Code $CC_VERSION (before 2.1.251) it overrides every model pin"
+elif [[ -n "$model_at" ]]; then
+  warn "CLAUDE_CODE_SUBAGENT_MODEL is set in $model_at — since 2.1.251 only a default for agents with no model: pin, so the four pinned agents keep theirs; before 2.1.251 it overrode every pin"
+else
+  pass "no subagent model override: CLAUDE_CODE_SUBAGENT_MODEL_FORCE and CLAUDE_CODE_SUBAGENT_MODEL are unset"
+fi
 if [[ -f "$MANAGED" && -r "$MANAGED" ]]; then
   v="$(jget "$MANAGED" 'bool(d.get("availableModels") or d.get("modelOverrides"))')"
   if [[ -n "$v" && "$v" != "__ERR__" ]]; then
@@ -187,9 +220,6 @@ if [[ $local_agents -gt 0 ]]; then
   for a in $ALL_AGENTS; do
     f="$TARGET/.claude/agents/$a.md"
     [[ -f "$f" ]] || continue
-    if frontmatter "$f" | grep -Eq '^maxTurns:'; then
-      warn "$a declares maxTurns — the key is accepted and ignored (measured: a maxTurns: 15 agent ran 65 turns); remove it"
-    fi
     if ! frontmatter "$f" | grep -Eq '^model:[[:space:]]*[^[:space:]]'; then
       fail "$a has no model: pin — it will inherit the session model"
     fi
@@ -216,7 +246,7 @@ if [[ "${CLAUDE_CODE_DISABLE_BACKGROUND_TASKS:-}" == "1" ]]; then
 elif [[ -n "$bg_off" ]]; then
   pass "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 in $bg_off — delegations return in the foreground and the skill's model/effort pin holds"
 elif [[ "${CLAUDE_CODE_FORK_SUBAGENT:-}" == "0" ]]; then
-  warn "CLAUDE_CODE_FORK_SUBAGENT=0 — fork mode off, so Claude may foreground a delegation it needs; not a guarantee (templates/settings.snippet.json)"
+  warn "CLAUDE_CODE_FORK_SUBAGENT=0 — fork mode off, so Claude may foreground a delegation it needs; not a guarantee — set CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 instead (templates/settings.snippet.json)"
 else
   fail "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS is not set — every delegation is backgrounded, the skill's model/effort pin drops at the first completion notification (templates/settings.snippet.json)"
 fi
@@ -265,6 +295,24 @@ if [[ -f "$TARGET/CLAUDE.md" ]] && grep -q '/execute-plan' "$TARGET/CLAUDE.md"; 
   pass "CLAUDE.md carries the routing line for saved plans"
 else
   warn "CLAUDE.md does not mention /execute-plan — add the two-line snippet (templates/CLAUDE.md.snippet.md)"
+fi
+
+# Optional: the worker rows under the prompt. Without it a running worker shows
+# its name and a token count and nothing of what it is doing.
+ssl_at=""
+for f in "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.local.json" \
+         "$HOME/.claude/settings.json"; do
+  [[ -f "$f" && -r "$f" ]] || continue
+  v="$(jget "$f" '(d.get("subagentStatusLine") or {}).get("command")')"
+  [[ -n "$v" && "$v" != "__ERR__" && "$v" == *subagent-statusline.py* ]] && ssl_at="$f"
+done
+ssl_script="$TARGET/.claude/plan-and-execute/subagent-statusline.py"
+if [[ -n "$ssl_at" && -f "$ssl_script" ]]; then
+  pass "subagentStatusLine in $ssl_at — each worker's row shows what it is doing"
+elif [[ -n "$ssl_at" ]]; then
+  warn "subagentStatusLine in $ssl_at points at subagent-statusline.py, but .claude/plan-and-execute/subagent-statusline.py is missing — re-run install.sh"
+else
+  info "subagentStatusLine not set — optional; with it each worker's row shows its current action, files changed and last check (templates/settings.snippet.json)"
 fi
 
 # ── 5. Test/check wrappers ────────────────────────────────────────────────────
@@ -323,14 +371,16 @@ if [[ -n "$plugin_enabled" && -f "$INSTALLED" ]]; then
 fi
 
 # ── 7. Version, informational ────────────────────────────────────────────────
+# The newest version this repo records a measurement on: the highest version
+# number its README sets in bold.
 
-if command -v claude >/dev/null 2>&1; then
-  have="$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-  tested="$(grep -oE 'Tested against Claude Code \*\*[0-9.]+\*\*' "$SRC/README.md" 2>/dev/null | grep -oE '[0-9.]+' | tail -1)"
-  if [[ -n "$have" && -n "$tested" && "$have" != "$tested" ]]; then
-    info "Claude Code $have installed; this repo last verified its claims against $tested — behaviour can drift between versions"
-  elif [[ -n "$have" ]]; then
-    info "Claude Code $have"
+if [[ -n "$CC_VERSION" ]]; then
+  tested="$(grep -oE '\*\*[0-9]+\.[0-9]+\.[0-9]+\*\*' "$SRC/README.md" 2>/dev/null \
+            | tr -d '*' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
+  if [[ -n "$tested" ]] && version_lt "$tested" "$CC_VERSION"; then
+    info "Claude Code $CC_VERSION installed; this repo's newest measurements are on $tested — behaviour can drift between versions"
+  else
+    info "Claude Code $CC_VERSION"
   fi
 fi
 
