@@ -298,21 +298,43 @@ else
 fi
 
 # Optional: the worker rows under the prompt. Without it a running worker shows
-# its name and a token count and nothing of what it is doing.
+# its name and a token count and nothing of what it is doing. Claude Code runs
+# the command the setting holds, so that is the path to check — not the place
+# install.sh puts the script.
 ssl_at=""
+ssl_cmd=""
 for f in "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.local.json" \
          "$HOME/.claude/settings.json"; do
   [[ -f "$f" && -r "$f" ]] || continue
   v="$(jget "$f" '(d.get("subagentStatusLine") or {}).get("command")')"
-  [[ -n "$v" && "$v" != "__ERR__" && "$v" == *subagent-statusline.py* ]] && ssl_at="$f"
+  if [[ -n "$v" && "$v" != "__ERR__" && "$v" == *subagent-statusline.py* ]]; then
+    ssl_at="$f"
+    ssl_cmd="$v"
+  fi
 done
-ssl_script="$TARGET/.claude/plan-and-execute/subagent-statusline.py"
-if [[ -n "$ssl_at" && -f "$ssl_script" ]]; then
-  pass "subagentStatusLine in $ssl_at — each worker's row shows what it is doing"
-elif [[ -n "$ssl_at" ]]; then
-  warn "subagentStatusLine in $ssl_at points at subagent-statusline.py, but .claude/plan-and-execute/subagent-statusline.py is missing — re-run install.sh"
-else
+if [[ -z "$ssl_at" ]]; then
   info "subagentStatusLine not set — optional; with it each worker's row shows its current action, files changed and last check (templates/settings.snippet.json)"
+else
+  # The script's path as the command spells it, quotes dropped, with the two
+  # things Claude Code would expand: the project directory and a leading ~.
+  # A relative path is relative to the project, where the command runs.
+  ssl_script="$(grep -oE "[^[:space:]\"']*subagent-statusline\.py" <<<"$ssl_cmd" | head -1)"
+  ssl_script="${ssl_script//\$\{CLAUDE_PROJECT_DIR\}/$TARGET}"
+  ssl_script="${ssl_script//\$CLAUDE_PROJECT_DIR/$TARGET}"
+  if [[ "$ssl_script" == *'$'* ]]; then
+    : # another variable: left as written, reported below
+  elif [[ "$ssl_script" == \~/* ]]; then
+    ssl_script="$HOME/${ssl_script:2}"
+  elif [[ "$ssl_script" != /* ]]; then
+    ssl_script="$TARGET/$ssl_script"
+  fi
+  if [[ "$ssl_script" == *'$'* ]]; then
+    warn "subagentStatusLine in $ssl_at runs $ssl_script — a variable this check cannot resolve, so the script's presence is unverified"
+  elif [[ -f "$ssl_script" ]]; then
+    pass "subagentStatusLine in $ssl_at runs ${ssl_script#"$TARGET"/} — each worker's row shows what it is doing"
+  else
+    warn "subagentStatusLine in $ssl_at runs $ssl_script, which does not exist — worker rows fall back to the default; re-run install.sh or fix the path"
+  fi
 fi
 
 # ── 5. Test/check wrappers ────────────────────────────────────────────────────

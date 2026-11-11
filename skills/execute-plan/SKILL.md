@@ -113,8 +113,10 @@ before the next phase starts. A worker's edits stay inside the worker, so this
 message is where the user sees them. From what you just read:
 
 - the phase and the worker that ran it
-- every file the phase changed or created, each with its line from
-  `git diff --stat HEAD -- <phase files>`; new files marked as new
+- every tracked file the phase changed, each with its line from
+  `git diff --stat HEAD -- <phase files>`
+- every file the phase created, marked new, with its line count — an untracked
+  file has no line in that stat, so count it with `wc -l`
 - each check the worker ran, with its result
 - your verdict: accepted, or the findings you are about to send back
 

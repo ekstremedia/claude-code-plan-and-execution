@@ -212,6 +212,9 @@ class SubagentStatusline(unittest.TestCase):
                 assistant("w2", tool_use("t2", "Edit", file_path=f"{self.CWD}/app/A.php")),
                 assistant("w2", tool_use("t2", "Edit", file_path=f"{self.CWD}/app/A.php")),
                 tool_result("t2", "ok"),
+                # An Edit that failed changed nothing, so it is not a changed file.
+                assistant("w2b", tool_use("t2b", "Edit", file_path=f"{self.CWD}/app/Nope.php")),
+                tool_result("t2b", "String to replace not found in file.", is_error=True),
                 assistant("w3", tool_use("t3", "Write", file_path=f"{self.CWD}/tests/ATest.php")),
                 tool_result("t3", "ok"),
                 assistant("w4", tool_use("t4", "Bash", command="bin/test-php tests/ATest.php")),
@@ -219,12 +222,16 @@ class SubagentStatusline(unittest.TestCase):
                 assistant("w5", tool_use("t5", "Edit", file_path=f"{self.CWD}/app/B.php")),
             ],
         )
+        # B.php is the current action, and not yet a changed file: its result
+        # has not come back.
         row = self.run_script()["a1"]
         self.assertEqual(
             row,
-            "implementer · Phase 2: scan reader · edit app/B.php · 3 files changed"
+            "implementer · Phase 2: scan reader · edit app/B.php · 2 files changed"
             " · test-php ok · 41.2k tok · 2m",
         )
+        write_jsonl(self.worker, [tool_result("t5", "ok")])
+        self.assertIn("3 files changed", self.run_script()["a1"])
 
     def test_a_failed_check_and_a_shell_edit_are_seen(self):
         write_jsonl(
@@ -249,18 +256,24 @@ class SubagentStatusline(unittest.TestCase):
     def test_only_appended_records_are_parsed_on_the_next_tick(self):
         write_jsonl(
             self.worker,
-            [assistant("w1", tool_use("t1", "Edit", file_path=f"{self.CWD}/a.txt"))],
+            [
+                assistant("w1", tool_use("t1", "Edit", file_path=f"{self.CWD}/a.txt")),
+                tool_result("t1", "ok"),
+            ],
         )
         self.assertIn("1 file changed", self.run_script()["a1"])
         with open(self.worker, "a", encoding="utf-8") as fh:
             # A record still being written: no newline yet, so not parsed yet.
             fh.write('{"type":"assistant","message":{"content":[{"type":"tool_use"')
-        self.assertIn("1 file changed", self.run_script()["a1"])
+        self.assertNotIn("write b.txt", self.run_script()["a1"])
         with open(self.worker, "a", encoding="utf-8") as fh:
             fh.write(',"id":"t2","name":"Write","input":{"file_path":"/work/project/b.txt"}}]}}\n')
         row = self.run_script()["a1"]
-        self.assertIn("2 files changed", row)
         self.assertIn("write b.txt", row)
+        self.assertIn("1 file changed", row)
+        # The second tick resumed from the cached offset rather than starting over.
+        write_jsonl(self.worker, [tool_result("t2", "ok")])
+        self.assertIn("2 files changed", self.run_script()["a1"])
 
     def test_the_row_never_exceeds_the_width_it_was_given(self):
         write_jsonl(
@@ -277,6 +290,54 @@ class SubagentStatusline(unittest.TestCase):
             self.assertLessEqual(len(row), columns, f"{columns}: {row!r}")
         # At a comfortable width the path keeps its tail, the part that names the file.
         self.assertIn("Long.php", self.run_script(columns=80)["a1"])
+
+    def test_a_failed_check_fits_too_and_is_the_last_fact_to_go(self):
+        write_jsonl(
+            self.worker,
+            [
+                assistant("w1", tool_use("t1", "Edit", file_path=f"{self.CWD}/app/A.php")),
+                tool_result("t1", "ok"),
+                assistant("w2", tool_use("t2", "Bash", command="bin/check-php app/")),
+                tool_result("t2", "Exit code 1", is_error=True),
+            ],
+        )
+        for columns in (200, 80, 60, 40, 30, 20, 12, 5, 1):
+            row = self.run_script(columns=columns)["a1"]
+            self.assertLessEqual(len(row), columns, f"{columns}: {row!r}")
+        self.assertIn("check-php FAIL", self.run_script(columns=60)["a1"])
+        # Too narrow for the wrapper's name: the failure itself still shows.
+        self.assertEqual(self.run_script(columns=20)["a1"], "implementer · FAIL")
+
+    def test_a_cache_directory_someone_else_could_read_is_not_used(self):
+        write_jsonl(
+            self.worker,
+            [
+                assistant("w1", tool_use("t1", "Edit", file_path=f"{self.CWD}/a.txt")),
+                tool_result("t1", "ok"),
+            ],
+        )
+        directory = statusline.cache_dir()
+        self.assertEqual(os.stat(directory).st_mode & 0o777, 0o700)
+
+        # Left open by whoever made it: closed again before anything is written.
+        os.chmod(directory, 0o777)
+        self.assertEqual(statusline.cache_dir(), directory)
+        self.assertEqual(os.stat(directory).st_mode & 0o777, 0o700)
+        self.assertIn("1 file changed", self.run_script()["a1"])
+        for name in os.listdir(directory):
+            self.assertEqual(os.stat(os.path.join(directory, name)).st_mode & 0o777, 0o600)
+
+        # Planted as a symlink to somewhere else: refused, and the row is
+        # still produced, from a full parse with nothing written.
+        elsewhere = os.path.join(self.tmp.name, "elsewhere")
+        os.mkdir(elsewhere)
+        for name in os.listdir(directory):
+            os.unlink(os.path.join(directory, name))
+        os.rmdir(directory)
+        os.symlink(elsewhere, directory)
+        self.assertIsNone(statusline.cache_dir())
+        self.assertIn("1 file changed", self.run_script()["a1"])
+        self.assertEqual(os.listdir(elsewhere), [])
 
     def test_a_finished_worker_shows_its_status_not_its_last_tool(self):
         write_jsonl(

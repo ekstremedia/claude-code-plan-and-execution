@@ -117,8 +117,9 @@ and no setting streams that into the chat. Two things here close most of the
 gap.
 
 **In the chat, per phase.** After reading a phase's diff the orchestrator lists
-what the phase changed — every file with its `git diff --stat` line, each check
-the worker ran, and its verdict — before anything else happens.
+what the phase changed — every changed file with its `git diff --stat` line,
+every new file with its line count, each check the worker ran, and its verdict
+— before anything else happens.
 
 **Under the prompt, live.** `scripts/subagent-statusline.py` rewrites each
 worker's row from the worker's own transcript, every few seconds:
@@ -127,8 +128,8 @@ worker's row from the worker's own transcript, every few seconds:
 implementer · Phase 2: scan reader · edit app/Ai/ScanLineParser.php · 9 files changed · test-php ok · 41.2k tok · 12m
 ```
 
-It is the `subagentStatusLine` entry in `templates/settings.snippet.json`;
-`install.sh` places the script. The plugin path does not ship it: whether a
+It is optional: nothing changes until a project adds the `subagentStatusLine`
+entry from `templates/settings.snippet.json`. `install.sh` places the script. The plugin path does not ship it: whether a
 plugin's own settings can point a command at a plugin file is not documented,
 and it has not been measured here.
 

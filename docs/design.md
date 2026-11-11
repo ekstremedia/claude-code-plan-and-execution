@@ -170,13 +170,15 @@ tool calls into it. A phase can run for forty minutes behind a name and a
 token count.
 
 Two things put the work back in view without giving up the isolation. The
-orchestrator, having read the phase's diff, lists what changed — each file with
-its `git diff --stat` line, each check and its result, its verdict — so the
-change set reaches the chat once per phase, from the tier that has just
-verified it rather than from the worker's own account. And
-`scripts/subagent-statusline.py`, wired in as `subagentStatusLine`, rewrites
-each worker's row from the worker's transcript every few seconds: current
-action, files changed, last check.
+orchestrator, having read the phase's diff, lists what changed — each changed
+file with its `git diff --stat` line, each new file with its line count, each
+check and its result, its verdict — so the change set reaches the chat once
+per phase, from the tier that has just verified it rather than from the
+worker's own account. And `scripts/subagent-statusline.py` rewrites each
+worker's row from the worker's transcript every few seconds: current action,
+files changed, last check. That half is optional and off until a project adds
+the `subagentStatusLine` entry to its settings, and only the `install.sh` path
+places the script — the plugin does not ship it.
 
 Both lean on the workers changing files with `Edit` and `Write`, which is why
 the worker agents say so. Left alone they mostly do not — measured, two `Edit`
