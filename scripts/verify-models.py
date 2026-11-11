@@ -19,6 +19,12 @@ by the `agentType` in the adjacent `.meta.json`. Usage on a streamed message
 grows across its records, so records are deduplicated by message id and the
 last one wins. Output tokens include thinking tokens.
 
+A streamed message is also written as several records, each repeating the
+blocks it has so far — so delegations are counted once per `tool_use` id, not
+once per record. The same `.meta.json` carries `requestShape`, which says
+whether the worker ran in the foreground or the background; a backgrounded
+worker of ours is reported, because its completion is what drops the pin.
+
 Usage:
   verify-models.py                    sweep ~/.claude/projects/
   verify-models.py SESSION.jsonl ...  inspect specific transcripts
@@ -87,19 +93,22 @@ def scan_subagents(path):
     """Aggregate per-agent-type token usage from <session>/subagents/.
 
     Each subagent transcript is one worker run; the adjacent
-    `agent-<id>.meta.json` names its agentType. The subagent transcript's own
-    usage records are the worker's spend, which never appears in the parent
+    `agent-<id>.meta.json` names its agentType and, on versions that write it,
+    its requestShape (`foreground` or `background`). The subagent transcript's
+    own usage records are the worker's spend, which never appears in the parent
     transcript.
     """
     base = path[:-len(".jsonl")] if path.endswith(".jsonl") else path
     out = {}
     for sub in sorted(glob.glob(os.path.join(base, "subagents", "agent-*.jsonl"))):
         atype = None
+        shape = None
         try:
             with open(sub[: -len(".jsonl")] + ".meta.json") as mh:
                 meta = json.load(mh)
             if isinstance(meta, dict):
                 atype = meta.get("agentType")
+                shape = meta.get("requestShape")
         except (OSError, ValueError):
             pass
         atype = atype or "<no meta.json>"
@@ -129,10 +138,17 @@ def scan_subagents(path):
 
         entry = out.setdefault(
             atype,
-            {"runs": 0, "usage": dict.fromkeys(USAGE_KEYS, 0), "models": Counter()},
+            {
+                "runs": 0,
+                "usage": dict.fromkeys(USAGE_KEYS, 0),
+                "models": Counter(),
+                "shapes": Counter(),
+            },
         )
         entry["runs"] += 1
         entry["models"].update(models)
+        if shape:
+            entry["shapes"][shape] += 1
         for k, v in sum_usage(usage_by_id).items():
             entry["usage"][k] += v
     return out
@@ -153,6 +169,9 @@ def scan(path):
     first_ts = None
     task_notifications = 0
     pin_drops = []
+    # A streamed assistant message is written as several records that repeat
+    # its blocks, so one delegation shows up more than once. Count per id.
+    seen_tool_use_ids = set()
     # Pin tracking: a command_permissions record arms the watch, the next
     # assistant record sets the baseline, and the first record whose effort or
     # model differs from it is where the pin was lost.
@@ -229,6 +248,11 @@ def scan(path):
 
             for block in msg.get("content") or []:
                 if isinstance(block, dict) and block.get("name") == "Agent":
+                    block_id = block.get("id")
+                    if block_id:
+                        if block_id in seen_tool_use_ids:
+                            continue
+                        seen_tool_use_ids.add(block_id)
                     inp = block.get("input") or {}
                     name = inp.get("subagent_type") or "?"
                     delegations[name] += 1
@@ -284,7 +308,25 @@ def report(summary):
             f"(each one starts a new turn)"
         )
 
+    subagents = scan_subagents(summary["path"])
+    shapes = Counter()
+    for entry in subagents.values():
+        shapes.update(entry["shapes"])
+    if shapes:
+        print(
+            "  worker request shape (meta.json): "
+            + ", ".join(f"{shape} x{n}" for shape, n in shapes.most_common())
+        )
+
     warnings = []
+    for atype, entry in subagents.items():
+        n = entry["shapes"].get("background", 0)
+        if n and unqualify(atype) in OURS:
+            warnings.append(
+                f"{atype} ran in the background x{n} — its completion starts a "
+                f"new turn at the session model/effort; set "
+                f"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 in the project settings env"
+            )
     for name, n in summary["delegations"].items():
         if name in INHERITS_SESSION_MODEL:
             warnings.append(
@@ -316,7 +358,6 @@ def report(summary):
     for w in warnings:
         print(f"  WARNING: {w}")
 
-    subagents = scan_subagents(summary["path"])
     main_usage = summary.get("usage") or {}
     if main_usage.get("output_tokens") or subagents:
         print("  tokens (usage records, deduped by message id; out includes thinking):")
