@@ -36,7 +36,9 @@ for arg in "$@"; do
   fi
 done
 
-LOG="$(mktemp -t test-run.XXXXXX.log)"
+# The X's must end the name: BSD mktemp (macOS) only fills in a trailing run.
+tmp="${TMPDIR:-/tmp}"
+LOG="$(mktemp "${tmp%/}/test-run.XXXXXX")"
 
 # --- adapt this line, and only this line, to your project ----------------------
 # Docker example:

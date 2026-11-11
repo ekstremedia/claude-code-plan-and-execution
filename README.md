@@ -13,8 +13,9 @@ at — and a plan that lives only in a conversation dies with that conversation.
 Tested against Claude Code **2.1.220**; the transcript tooling and the doctor's
 checks re-verified on **2.1.238**. The model-pin drop described below was
 measured on **2.1.239**, **2.1.251** and **2.1.259**; the foreground switch that
-prevents it is documented, and not yet measured here. Command names and model aliases drift; the structure is
-the durable part.
+prevents it, the worker status line and `maxTurns` were measured on
+**2.1.322**. Command names and model aliases drift; the structure is the
+durable part.
 
 ---
 
@@ -36,11 +37,17 @@ git clone https://github.com/ekstremedia/claude-code-plan-and-execution
 ./claude-code-plan-and-execution/install.sh /path/to/your/project
 ```
 
+`install.sh` never edits the project's `.claude/settings.json`, and one entry
+there is not optional: `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` under `env`.
+The installer prints it, with the optional worker status line, when it
+finishes; `templates/settings.snippet.json` has both, annotated. Then run
+`scripts/doctor.sh /path/to/your/project` — it asserts the setup is wired,
+every silently-breaking misconfiguration it can check, as PASS/FAIL lines
+instead of prose.
+
 Later: `--update` pulls upstream changes in without touching the two adapted
-worker agents, and `--uninstall` removes exactly what install placed. After
-either, `scripts/doctor.sh /path/to/your/project` asserts the setup is still
-wired — every silently-breaking misconfiguration it can check, as PASS/FAIL
-lines instead of prose.
+worker agents, and `--uninstall` removes exactly what install placed. Run the
+doctor again after either.
 
 > **The plugin path is the weaker of the two.** Claude Code ignores
 > `permissionMode`, `hooks`, and `mcpServers` in plugin-packaged agents. The two
@@ -92,14 +99,44 @@ never comes. `CLAUDE_CODE_EFFORT_LEVEL` must be unset: it overrides `/effort`,
 [Four things that break it](#four-things-that-break-it).
 
 Sonnet orchestrates: builds a phase packet, delegates to `implementer`, reads the
-real diff plus any new untracked files, sends findings back rather than fixing
-them itself, gates `Risk: high` phases through the Opus reviewer, and runs a
-final integration check over the accumulated change set. If execution recorded
+real diff plus any new untracked files, shows you what the phase changed, sends
+findings back rather than fixing them itself, gates `Risk: high` phases through
+the Opus reviewer, and runs a final integration check over the accumulated
+change set. If execution recorded
 deviations, it closes with a short retro suggesting which of them belong in
 `CLAUDE.md` or a `bin/` wrapper — suggestions only; the user decides.
 
 Steering mid-run works normally — *"redo phase 3, the overlay change missed the
 trip filter"* is picked up as a follow-up delegation.
+
+### Seeing what the workers do
+
+A worker's activity stays inside the worker: Claude Code shows one row per
+running subagent under the prompt and nothing of what it reads, edits or runs,
+and no setting streams that into the chat. Two things here close most of the
+gap.
+
+**In the chat, per phase.** After reading a phase's diff the orchestrator lists
+what the phase changed — every file with its `git diff --stat` line, each check
+the worker ran, and its verdict — before anything else happens.
+
+**Under the prompt, live.** `scripts/subagent-statusline.py` rewrites each
+worker's row from the worker's own transcript, every few seconds:
+
+```text
+implementer · Phase 2: scan reader · edit app/Ai/ScanLineParser.php · 9 files changed · test-php ok · 41.2k tok · 12m
+```
+
+It is the `subagentStatusLine` entry in `templates/settings.snippet.json`;
+`install.sh` places the script. The plugin path does not ship it: whether a
+plugin's own settings can point a command at a plugin file is not documented,
+and it has not been measured here.
+
+Both worker agents are told to change files with `Edit` and `Write`. Measured
+across fourteen implementer runs, that was the exception: two `Edit` calls
+against some nine hundred `Bash` calls, with the files rewritten from heredocs
+and scripts. Those show you a command, not a change — in the row and in the
+worker's own transcript alike.
 
 ---
 
@@ -133,10 +170,11 @@ voluminous, the run is long, or the phases are independent.
 | `agents/plan-reviewer.md` | Read-only risk gate over the real changes. | `opus` |
 | `templates/PLAN-TEMPLATE.md` | The plan-file contract. |  |
 | `templates/CLAUDE.md.snippet.md` | Two lines to paste into the project. |  |
-| `templates/settings.snippet.json` | `plansDirectory`, permissions. |  |
+| `templates/settings.snippet.json` | The foreground switch, the worker status line, `plansDirectory`, permissions. |  |
 | `templates/bin/test-example.sh` | The test-wrapper convention. |  |
 | `scripts/verify-models.py` | Proves from a transcript which model actually ran, and where the tokens went. |  |
 | `scripts/doctor.sh` | Asserts an install is wired — the checkable gotchas as PASS/FAIL. |  |
+| `scripts/subagent-statusline.py` | Shows what each running worker is doing, in its row under the prompt. |  |
 
 Workers are **subagents**, not skills, because they need isolated context as well
 as a model pin: verbose test output and file reads stay inside the worker, and
@@ -214,6 +252,11 @@ measured on 2.1.238:
     worker share of output tokens: 79%
 ```
 
+Each worker's `.meta.json` also records whether it ran in the foreground or the
+background. The script prints the tally — `worker request shape (meta.json):
+foreground x12` — and warns when one of this workflow's agents was
+backgrounded.
+
 79% of what the run wrote came out of the workers, on their pinned models. The
 bracketed model is read from the worker's own transcript, and there it does
 reflect the pin: this session was configured on Sonnet, yet the reviewer's
@@ -238,14 +281,18 @@ the skill's `medium` to the session's `xhigh` at the first notification
 interactive session runs every subagent in the background, and neither the
 Agent tool nor agent frontmatter can ask for the foreground; the one documented
 switch is `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's settings
-`env`, which `scripts/doctor.sh` checks for. Documented, not yet measured here.
-One-line check for the reader: the delegation's tool result is the report rather
-than "Async agent launched successfully", `scripts/verify-models.py` reports
-zero task-notifications, and `effort` stays at the skill's value across the run.
+`env`, which `scripts/doctor.sh` checks for. Measured with it set, on 2.1.322:
+two `/execute-plan` runs, 20 delegations between them, zero task-notifications,
+and every main-thread record at the skill's `medium` on `claude-sonnet-5-5`.
+One-line check for the reader: no delegation answers "Async agent launched
+successfully", and `scripts/verify-models.py` reports zero task-notifications
+and `foreground` for every worker.
 
-**`CLAUDE_CODE_SUBAGENT_MODEL`** takes precedence over every agent's `model:`
-frontmatter. Setting it collapses the whole tiering onto one model, silently.
-Do not set it.
+**`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`** makes Claude Code ignore every agent's
+`model:` frontmatter, which collapses the whole tiering onto one model,
+silently. Do not set it. `CLAUDE_CODE_SUBAGENT_MODEL` on its own is only a
+default for agents with no pin since 2.1.251; before that it did the same
+damage alone.
 
 **A long `CLAUDE.md` orchestration block.** `CLAUDE.md` is loaded in every session
 *and* inherited by every custom subagent. The procedure belongs in the skill,

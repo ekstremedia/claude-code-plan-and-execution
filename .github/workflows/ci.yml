@@ -1,6 +1,7 @@
 # Keeps the repository honest about its own rules: the scripts stay
-# shellcheck-clean, the frontmatter contracts hold, and an install → doctor →
-# uninstall roundtrip works on a bare checkout.
+# shellcheck-clean, the frontmatter contracts hold, the transcript-reading
+# scripts pass their tests, and an install → doctor → uninstall roundtrip works
+# on a bare checkout.
 name: checks
 
 on:
@@ -26,7 +27,10 @@ jobs:
         run: shellcheck install.sh scripts/doctor.sh templates/bin/test-example.sh
 
       - name: python compiles
-        run: python3 -m py_compile scripts/verify-models.py scripts/lint.py
+        run: python3 -m py_compile scripts/verify-models.py scripts/lint.py scripts/subagent-statusline.py
+
+      - name: script tests (verify-models, subagent-statusline)
+        run: python3 -m unittest discover -s tests -v
 
       - name: repo lint (frontmatter, JSON, doc links)
         run: python3 scripts/lint.py
@@ -44,7 +48,8 @@ jobs:
 
           # Merge the settings snippet the way the README tells a user to
           # (the // comment keys stripped). It carries the foreground switch
-          # doctor asserts, and this proves the snippet is valid settings.
+          # doctor asserts and the status line whose script install placed,
+          # and this proves the snippet is valid settings.
           python3 - "$proj" <<'PY'
           import json, sys, pathlib
           src = json.load(open("templates/settings.snippet.json"))
@@ -62,12 +67,28 @@ jobs:
           grep -q 'PASS  implementer inherits' <<<"$out"
           grep -q 'PASS  quick-implementer inherits' <<<"$out"
 
+          # The snippet's status line points at the script install placed, and
+          # the script answers a tick with no workers by printing nothing.
+          grep -q 'PASS  subagentStatusLine' <<<"$out"
+          test -z "$(echo '{"tasks": [], "transcript_path": "/nonexistent.jsonl"}' \
+            | python3 "$proj/.claude/plan-and-execute/subagent-statusline.py")"
+
+          # The model-override check keys on _FORCE, the variable that still
+          # overrides every pin; the plain one is only a warning now.
+          if CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 scripts/doctor.sh "$proj" >/dev/null; then
+            echo "doctor passed with CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 set" >&2
+            exit 1
+          fi
+          out="$(CLAUDE_CODE_SUBAGENT_MODEL=sonnet scripts/doctor.sh "$proj")"
+          grep -q 'WARN  CLAUDE_CODE_SUBAGENT_MODEL is set' <<<"$out"
+
           # Uninstall removes only what install placed: a user file dropped
           # into the templates directory survives, ours go.
           touch "$proj/.claude/plan-and-execute-templates/user-notes.md"
           ./install.sh "$proj" --uninstall --force
           test ! -e "$proj/.claude/agents/implementer.md"
           test ! -e "$proj/.claude/skills/make-plan/SKILL.md"
+          test ! -e "$proj/.claude/plan-and-execute/subagent-statusline.py"
           test ! -e "$proj/.claude/plan-and-execute-templates/PLAN-TEMPLATE.md"
           test -e "$proj/.claude/plan-and-execute-templates/user-notes.md"
 

@@ -11,10 +11,10 @@ doing what you think it does.
 
 The checkable ones are mechanized:
 [`scripts/doctor.sh <project>`](https://github.com/ekstremedia/claude-code-plan-and-execution/blob/main/scripts/doctor.sh)
-asserts them against a live install — the env override, the dual distribution
-paths, a dropped `permissionMode`, inert `maxTurns` keys, unadapted worker
-agents, a worker allowlist that hides MCP servers, wrapper refusal (`--probe`),
-a stale plugin snapshot. Prose is for understanding a failure; run the doctor to
+asserts them against a live install — the model-override variables, the dual
+distribution paths, a dropped `permissionMode`, backgrounded delegations,
+unadapted worker agents, a worker allowlist that hides MCP servers, wrapper
+refusal (`--probe`), a stale plugin snapshot. Prose is for understanding a failure; run the doctor to
 find one.
 
 ## Do not run `/make-plan` from plan mode
@@ -113,9 +113,9 @@ Three defences, and use all of them:
 
 - **Keep the delegations in the foreground.** Set
   `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's `.claude/settings.json`
-  `env`, so a delegation's report comes back as its tool result and the turn
-  never ends. See *Subagents run in the background since 2.1.232* below for why
-  nothing in an agent file can do this.
+  `env`, so a delegation's report comes back inside the turn that asked for it
+  and the turn never ends. See *Subagents run in the background since 2.1.232*
+  below for why nothing in an agent file can do this, and for the measurement.
 - **Leave `CLAUDE_CODE_EFFORT_LEVEL` unset.** It takes precedence over
   `/effort`, `--effort`, `modelSettings`, `effortLevel` *and* skill or subagent
   frontmatter ([env vars](https://code.claude.com/docs/en/env-vars),
@@ -126,20 +126,41 @@ Three defences, and use all of them:
   before `/execute-plan`, or `claude --model sonnet --effort medium`. `/clear`
   keeps the session's current model and effort, so clearing is not setting them.
   `modelSettings.<model>.effortLevel` in settings is the standing version of the
-  same safety net — see `templates/settings.snippet.json`.
+  same safety net — see `templates/settings.snippet.json`. The key is the
+  model's canonical name, the one `/effort` writes there itself
+  (`claude-sonnet-5-5`), not the alias. An entry keyed on the name `sonnet`
+  resolved to one release ago pins nothing, and nothing says so: this
+  repository's own snippet carried `claude-sonnet-5` after the alias had moved
+  on. Re-check the key when a release moves the alias.
 
-The one-line check: the delegation's tool result is the worker's report rather
-than *"Async agent launched successfully"*, `verify-models.py` counts zero
-task-notifications, and the `effort` field on assistant records stays at the
-skill's value for the whole run. `verify-models.py` prints
-a WARNING naming the exact record where it stopped.
+The one-line check: no delegation answers *"Async agent launched
+successfully"*, `verify-models.py` counts zero task-notifications and reports
+`foreground` for every worker, and the `effort` field on assistant records
+stays at the skill's value for the whole run. `verify-models.py` prints a
+WARNING naming the exact record where it stopped.
 
-## `CLAUDE_CODE_SUBAGENT_MODEL` overrides every `model:` pin
+## `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every `model:` pin
 
-It takes first precedence over agent frontmatter. Set it to Sonnet "for
-consistency" and you have silently overridden the Haiku `quick-implementer` and
-the Opus `plan-reviewer` — the tiering is gone and nothing tells you. Do not set
-it. Frontmatter pins are targeted and sufficient.
+Claude Code resolves a subagent's model in this order
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents.md)): the
+delegation's own `model` argument, the agent's `model:` frontmatter,
+`CLAUDE_CODE_SUBAGENT_MODEL`, the session model. So that variable is only a
+default for agents with no pin, and the four agents here keep theirs.
+
+It was not always so. *"Before v2.1.251, `CLAUDE_CODE_SUBAGENT_MODEL` came
+first in this order and overrode both the per-invocation parameter and the
+frontmatter."* Earlier versions of this page said exactly that, and it stayed
+here after it stopped being true.
+
+What does the damage now is `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` (2.1.257 and
+later): with it on, *"Claude Code ignores the `model` field in subagent
+definitions, and Claude can't pass a model when it starts a subagent"*. Set it
+"for consistency" and you have silently overridden the Haiku
+`quick-implementer` and the Opus `plan-reviewer` — the tiering is gone and
+nothing tells you. Do not set it. Frontmatter pins are targeted and sufficient.
+
+The doctor fails on `_FORCE`, fails on the plain variable when the installed
+Claude Code is older than 2.1.251, and otherwise only warns about it.
 
 Managed settings can do the same thing through `availableModels` and
 `modelOverrides`, which remap aliases at the policy level.
@@ -273,29 +294,60 @@ Two documented ways out, and only the first is deterministic:
   subagent *"in the foreground when it needs the result before continuing"* —
   Claude's judgment, not a guarantee.
 
-**Not measured here.** The switch is documented; an interactive run with it set
-had not been recorded when this was written. A headless `claude -p` run is not
-evidence either way: fork mode is off there by default, so delegations return
-in the foreground with or without any setting — which is exactly how the
-`background: false` draft looked verified when it was not.
+**Measured, on 2.1.322.** Two interactive `/execute-plan` runs in one project
+with the switch in its settings `env`, 2026-11-10:
+
+| Run | Delegations | Task-notifications | Main-thread records | Effort / model on all of them |
+|---|---|---|---|---|
+| 12:55 | 8 | 0 | 103 | `medium` / `claude-sonnet-5-5` |
+| 19:42 | 12 | 0 | 92 | `medium` / `claude-sonnet-5-5` |
+
+Every worker's `.meta.json` in both records `requestShape: foreground`, against
+`background` on all sixteen workers of an earlier run in a project without the
+switch — and that run logged twelve task-notifications. `verify-models.py`
+prints the tally and warns on a backgrounded worker.
+
+One detail moved underneath it. The tool result of a foreground delegation is
+no longer the report itself: on 2.1.322 it reads *"This agent's report was
+delivered to you as a message from … (its SubagentHandback call)"*, and the
+report arrives as a hand-back message inside the same turn. That is still
+foreground — no new turn, no pin drop. The thing to watch for is unchanged:
+*"Async agent launched successfully"*.
+
+A headless `claude -p` run is not evidence either way: fork mode is off there
+by default, so delegations return in the foreground with or without any
+setting — which is exactly how the `background: false` draft looked verified
+when it was not.
 
 The symptoms of losing this do not look like a scheduling bug. They look like
 the agent losing its answer, and like a run that silently changed model.
 
-## `maxTurns` on an agent is not enforced — verify before trusting it
+## `maxTurns` was not enforced, and now is — verify before trusting it
 
 `planning-researcher` carried `maxTurns: 15`. A run of it was measured at **65
-assistant turns**. The key is accepted in frontmatter and does nothing, which is
-worse than omitting it: it reads like a control, so you stop looking for the one
-that actually stopped your agent.
+assistant turns**: the key was accepted in frontmatter and did nothing, which
+is worse than omitting it. It reads like a control, so you stop looking for the
+one that actually stopped your agent.
 
-Count for yourself rather than believing the frontmatter — subagent transcripts
+That has changed. Measured on 2.1.322, in a headless `claude -p` run: an agent
+declaring `maxTurns: 3`, told to read twelve files one per turn, stopped after
+exactly three assistant messages and three tool calls. What came back to the
+parent was not narration but a marker — *"this agent stopped at its 3-turn
+limit before finishing. It was still calling tools and had produced no
+report"* — with the agent id to resume it by. The
+[sub-agents docs](https://code.claude.com/docs/en/sub-agents.md) date the
+partial marking to 2.1.246.
+
+So the rule is the same and the direction flipped: count for yourself rather
+than believing the frontmatter, on the version you run. Subagent transcripts
 are written to
 `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl`, one JSON
-record per line, and `type == "assistant"` is a turn.
+record per line, and the distinct `message.id` values on `type == "assistant"`
+records are the turns — a streamed message is written as several records.
 
-It is gone from both read-only agents. See "Why the read-only agents carry no
-turn limit" in `design.md`.
+It is still gone from both read-only agents, for the reason that never
+depended on whether it worked: a cap that fires cuts off the turn that writes
+the report. See "Why the read-only agents carry no turn limit" in `design.md`.
 
 ## A cut-off agent returns its narration as its answer
 

@@ -32,5 +32,6 @@ documentation about it.
 ## Optional
 
 - [Test wrapper example](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/bin/test-example.sh): The wrapper convention that keeps test logs out of agent context.
-- [Settings snippet](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/settings.snippet.json): plansDirectory and the read-only permission allowlist.
+- [Settings snippet](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/settings.snippet.json): The foreground switch, the worker status line, plansDirectory and the read-only permission allowlist.
+- [Worker status line](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/scripts/subagent-statusline.py): Rewrites each running worker's row under the prompt from the worker's own transcript.
 - [CLAUDE.md snippet](https://raw.githubusercontent.com/ekstremedia/claude-code-plan-and-execution/main/templates/CLAUDE.md.snippet.md): The two-line routing note, and why it is deliberately that short.

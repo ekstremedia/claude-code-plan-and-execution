@@ -96,7 +96,7 @@ Session 1 — planning        (plan mode OFF — it overrides the skill)
   /make-plan MyPlan <problem>
       │  model: opus
       ├── planning-researcher   (sonnet, read-only)  ← breadth search
-      │                                                 max 2 delegations
+      │                                                 one per independent area
       ├── planner reads the decisive files itself
       └── writes plans/MyPlan.md
 
@@ -105,7 +105,7 @@ Session 2 — execution (fresh: /model sonnet, /effort medium)
       │  model: sonnet, effort medium, Write withheld
       ├── phase packet ──→ implementer        (sonnet, effort high)
       │                └─→ quick-implementer  (haiku, batched, refuses judgment)
-      ├── reads real diff + new untracked files
+      ├── reads real diff + new untracked files, shows you what changed
       ├── Risk: high ────→ plan-reviewer      (opus, read-only, fresh context)
       └── final integration gate over the accumulated change set
 ```
@@ -140,9 +140,9 @@ shipping binary at version **2.1.220** — frontmatter schemas, settings keys, t
 advisor tool, and the plugin loading rules. The transcript tooling and the
 doctor's checks were re-verified on **2.1.238**, against the binary and against
 live transcripts. The skill-pin drop was measured on **2.1.239**, **2.1.251**
-and **2.1.259**; the foreground switch that prevents it is taken from the
-docs and has not been measured here. Where something could
-not be verified, the page says so rather than guessing.
+and **2.1.259**; the foreground switch that prevents it, the worker status
+line and `maxTurns` enforcement were measured on **2.1.322**. Where something
+could not be verified, the page says so rather than guessing.
 
 Model aliases float: `model: opus` resolves to whatever "opus" currently means,
 and that changes under you on a model release. Treat a release as a prompt-review

@@ -4,9 +4,10 @@
 - every agent and skill carries the frontmatter its role requires
 - the two read-only agents keep `permissionMode: plan` and a `tools:` allowlist
 - the two worker agents declare no `tools:` — an allowlist hides every MCP server
-- nothing declares keys the harness accepts and ignores (`maxTurns` — measured,
-  see docs/gotchas.md)
+- the two read-only agents declare no `maxTurns` — a cap that fires cuts off the
+  turn that writes the report (docs/design.md)
 - the plugin manifests and the settings snippet parse as JSON
+- the status-line script the settings snippet points at exists
 - every relative markdown link points at a file that exists
 
 Standard library only. Exit 1 on any finding.
@@ -21,7 +22,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 READONLY_AGENTS = {"planning-researcher", "plan-reviewer"}
 WORKER_AGENTS = {"implementer", "quick-implementer"}
-INERT_KEYS = {"maxTurns"}
 
 problems = []
 
@@ -47,12 +47,6 @@ def frontmatter(path):
     return None  # unterminated
 
 
-def check_common(path, fm):
-    """Rules that apply to every frontmatter block, agent or skill."""
-    for key in sorted(INERT_KEYS & fm.keys()):
-        problem(path, f"declares {key}: — accepted and ignored by the harness; remove it")
-
-
 def check_agent(path):
     """An agent must carry its role's frontmatter contract."""
     name = os.path.basename(path)[: -len(".md")]
@@ -71,7 +65,8 @@ def check_agent(path):
         problem(path, f"name: {fm['name']!r} does not match filename {name!r}")
     if name in READONLY_AGENTS and fm.get("permissionMode") != "plan":
         problem(path, "read-only agent without permissionMode: plan")
-    check_common(path, fm)
+    if name in READONLY_AGENTS and "maxTurns" in fm:
+        problem(path, "read-only agent declares maxTurns: — a cap that fires cuts off its report")
 
 
 def check_skill(path):
@@ -90,7 +85,6 @@ def check_skill(path):
         problem(path, "execute-plan must keep Write in disallowed-tools")
     if name == "make-plan" and not fm.get("allowed-tools"):
         problem(path, "make-plan must declare allowed-tools")
-    check_common(path, fm)
 
 
 def check_json(path):
@@ -102,6 +96,21 @@ def check_json(path):
         problem(path, "required JSON file is missing")
     except (OSError, ValueError) as e:
         problem(path, f"cannot read or parse JSON: {e}")
+
+
+def check_settings_snippet(path):
+    """The snippet's status-line command must name a script this repo ships."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            snippet = json.load(fh)
+    except (OSError, ValueError):
+        return  # check_json reports it
+    command = (snippet.get("subagentStatusLine") or {}).get("command", "")
+    m = re.search(r"\.claude/plan-and-execute/([\w.-]+)", command)
+    if not m:
+        problem(path, "subagentStatusLine does not point into .claude/plan-and-execute/")
+    elif not os.path.isfile(os.path.join(ROOT, "scripts", m.group(1))):
+        problem(path, f"subagentStatusLine names scripts/{m.group(1)}, which does not exist")
 
 
 def check_links(path):
@@ -134,6 +143,7 @@ def main():
         os.path.join(ROOT, "templates", "settings.snippet.json"),
     ):
         check_json(f)
+    check_settings_snippet(os.path.join(ROOT, "templates", "settings.snippet.json"))
     for f in sorted(
         glob.glob(os.path.join(ROOT, "docs", "*.md"))
         + glob.glob(os.path.join(ROOT, "templates", "*.md"))
