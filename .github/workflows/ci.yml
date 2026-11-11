@@ -73,6 +73,14 @@ jobs:
           test -z "$(echo '{"tasks": [], "transcript_path": "/nonexistent.jsonl"}' \
             | python3 "$proj/.claude/plan-and-execute/subagent-statusline.py")"
 
+          # The routing line counts when CLAUDE.md only imports the file that
+          # holds it — a CLAUDE.md that is just "@AGENTS.md".
+          grep -q 'WARN  CLAUDE.md does not mention /execute-plan' <<<"$out"
+          printf '@AGENTS.md\n' > "$proj/CLAUDE.md"
+          printf 'Plans run through the `/execute-plan <plan-file>` skill.\n' > "$proj/AGENTS.md"
+          out="$(scripts/doctor.sh "$proj")"
+          grep -q 'PASS  the routing line for saved plans is in AGENTS.md, which CLAUDE.md imports' <<<"$out"
+
           # The model-override check keys on _FORCE, the variable that still
           # overrides every pin; the plain one is only a warning now.
           if CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 scripts/doctor.sh "$proj" >/dev/null; then

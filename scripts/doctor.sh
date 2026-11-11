@@ -291,10 +291,32 @@ else
   warn "no $psettings — plansDirectory not set (templates/settings.snippet.json)"
 fi
 
-if [[ -f "$TARGET/CLAUDE.md" ]] && grep -q '/execute-plan' "$TARGET/CLAUDE.md"; then
-  pass "CLAUDE.md carries the routing line for saved plans"
+# The routing line may sit in CLAUDE.md itself or in a file it imports: a
+# CLAUDE.md that is only `@AGENTS.md` is a common layout, and Claude Code loads
+# the import as if it were written there. One level of imports is followed.
+routing_in=""
+if [[ -f "$TARGET/CLAUDE.md" ]]; then
+  if grep -q '/execute-plan' "$TARGET/CLAUDE.md"; then
+    routing_in="CLAUDE.md"
+  else
+    while IFS= read -r import; do
+      import="${import#@}"
+      if [[ "$import" == \~/* ]]; then
+        import="$HOME/${import:2}"
+      elif [[ "$import" != /* ]]; then
+        import="$TARGET/$import"
+      fi
+      if [[ -f "$import" ]] && grep -q '/execute-plan' "$import"; then
+        routing_in="${import#"$TARGET"/}, which CLAUDE.md imports"
+        break
+      fi
+    done < <(grep -oE '(^|[[:space:]])@[^[:space:]]+' "$TARGET/CLAUDE.md" | sed 's/^[[:space:]]*//')
+  fi
+fi
+if [[ -n "$routing_in" ]]; then
+  pass "the routing line for saved plans is in $routing_in"
 else
-  warn "CLAUDE.md does not mention /execute-plan — add the two-line snippet (templates/CLAUDE.md.snippet.md)"
+  warn "CLAUDE.md does not mention /execute-plan, directly or through an @import — add the two-line snippet (templates/CLAUDE.md.snippet.md)"
 fi
 
 # Optional: the worker rows under the prompt. Without it a running worker shows
