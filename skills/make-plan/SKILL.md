@@ -85,8 +85,8 @@ fanning out further.
 Dispatch independent delegations **in parallel, in a single message**. They
 must return in the **foreground** — the Agent call blocks until the researcher
 has finished, and its report is in your hands when it returns: as the tool
-result itself, or as a hand-back message the tool result points you to. Since
-Claude Code 2.1.232 an interactive session runs every subagent in the
+result itself, or as a hand-back message the tool result points you to. An
+interactive session runs every subagent in the
 background, the Agent tool's `run_in_background` parameter is gone, and no
 agent frontmatter can ask for the foreground; the one documented switch is
 `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the project's
@@ -110,8 +110,7 @@ trusts and builds on.
 
 ## The plan
 
-Fill the contract in `templates/PLAN-TEMPLATE.md` — this repository's copy, or
-the target project's own if it has one.
+Cover the contract below, or fill the project's own plan template if it has one.
 
 It must be self-contained. Execution happens in a fresh session that never sees
 this conversation, so anything you know and do not write down is lost.

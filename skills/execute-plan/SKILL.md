@@ -74,13 +74,12 @@ convention you do not state is a convention it will not apply.
 Delegations must return in the **foreground**: the Agent call blocks until the
 worker has finished, and the report is in your hands when it returns — as the
 tool result itself, or as a hand-back message the tool result points you to
-(*"This agent's report was delivered to you as a message…"*). Since Claude Code
-2.1.232 an interactive session runs every subagent in the background — the
+(*"This agent's report was delivered to you as a message…"*). An interactive
+session runs every subagent in the background — the
 Agent tool's `run_in_background` parameter is gone, and no agent frontmatter
 can ask for the foreground. The one documented switch is
 `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, set in the project's
-`.claude/settings.json` `env` (`templates/settings.snippet.json`);
-`scripts/doctor.sh` checks for it. If a delegation returns *"Async agent
+`.claude/settings.json` `env`. If a delegation returns *"Async agent
 launched successfully"* instead, the worker is still running and that switch is
 not set in this session. Say so once. If the session model is already Sonnet, continue — the
 cost is effort, not tier. Otherwise stop and let the user restart with it set;
